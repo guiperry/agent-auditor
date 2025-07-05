@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -225,14 +231,245 @@ func (e *AASABEngine) runDynamicAnalysis(binary []byte, container *CustomContain
 }
 
 func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContainer) string {
-	// Simulate execution and return execution log
-	// In a real implementation, this would involve:
-	// 1. Loading the binary into the isolated container
-	// 2. Executing it with monitoring
-	// 3. Capturing all system calls, network activity, file operations
-	// 4. Recording resource usage patterns
+	// Real implementation for executing binaries in an isolated environment
+	// with comprehensive monitoring via ptrace and other kernel mechanisms
 
-	return "simulated_execution_log"
+	// 1. Write binary to container filesystem
+	binaryPath := filepath.Join(container.FileSystem, "agent_binary")
+	if err := ioutil.WriteFile(binaryPath, binary, 0755); err != nil {
+		log.Printf("Failed to write binary to container: %v", err)
+		return fmt.Sprintf("ERROR: Failed to prepare binary for execution: %v", err)
+	}
+
+	// 2. Set up monitoring and logging
+	var executionLog bytes.Buffer
+	executionLog.WriteString(fmt.Sprintf("[EXECUTION] Container: %s\n", container.ID))
+	executionLog.WriteString(fmt.Sprintf("Binary Size: %d bytes\n", len(binary)))
+	executionLog.WriteString(fmt.Sprintf("Memory Limit: %d MB\n", container.MemoryLimit/(1024*1024)))
+	executionLog.WriteString(fmt.Sprintf("CPU Limit: %.1f%%\n", container.CPULimit*100))
+	executionLog.WriteString(fmt.Sprintf("Network: %s\n", container.NetworkNS))
+	executionLog.WriteString(fmt.Sprintf("Filesystem: %s\n", container.FileSystem))
+
+	// 3. Create cgroup for resource limiting (if supported)
+	cgroupPath := ""
+	if runtime.GOOS == "linux" {
+		cgroupPath = e.setupCgroup(container)
+		if cgroupPath != "" {
+			executionLog.WriteString(fmt.Sprintf("Cgroup: %s\n", cgroupPath))
+		}
+	}
+
+	// 4. Prepare command with appropriate isolation
+	cmd := exec.Command(binaryPath)
+
+	// Set up process attributes for isolation
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
+		Ptrace:     true, // Enable ptrace for syscall monitoring
+	}
+
+	// If we're on Linux, we can use more isolation features
+	if runtime.GOOS == "linux" {
+		// Add network namespace isolation if configured
+		if container.NetworkNS == "none" {
+			cmd.SysProcAttr.Cloneflags |= syscall.CLONE_NEWNET
+			executionLog.WriteString("Network: Isolated (namespace)\n")
+		}
+
+		// Set resource limits
+		cmd.SysProcAttr.Credential = &syscall.Credential{
+			Uid: 65534, // nobody user
+			Gid: 65534, // nobody group
+		}
+	}
+
+	// Set up I/O redirection
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.Dir = container.FileSystem
+
+	// 5. Start the process
+	startTime := time.Now()
+	if err := cmd.Start(); err != nil {
+		executionLog.WriteString(fmt.Sprintf("ERROR: Failed to start process: %v\n", err))
+		return executionLog.String()
+	}
+
+	// Record the process ID
+	container.ProcessID = cmd.Process.Pid
+	executionLog.WriteString(fmt.Sprintf("Process Started: PID %d\n", container.ProcessID))
+
+	// 6. Set up ptrace monitoring in a separate goroutine
+	syscallLog := make(map[string]int)
+	fileOps := make(map[string]int)
+	networkActivity := false
+
+	// Create a channel to signal when tracing is complete
+	traceDone := make(chan bool)
+
+	go func() {
+		// Wait for the process to stop (it should stop immediately due to ptrace)
+		var status syscall.WaitStatus
+		_, err := syscall.Wait4(container.ProcessID, &status, 0, nil)
+		if err != nil {
+			executionLog.WriteString(fmt.Sprintf("ERROR: Failed to wait for process: %v\n", err))
+			traceDone <- true
+			return
+		}
+
+		// Begin tracing
+		for {
+			// Allow the process to continue with tracing
+			err = syscall.PtraceSyscall(container.ProcessID, 0)
+			if err != nil {
+				break
+			}
+
+			// Wait for the next syscall
+			_, err = syscall.Wait4(container.ProcessID, &status, 0, nil)
+			if err != nil {
+				break
+			}
+
+			// If the process exited, we're done
+			if status.Exited() {
+				break
+			}
+
+			// Get the syscall number
+			regs := &syscall.PtraceRegs{}
+			if err = syscall.PtraceGetRegs(container.ProcessID, regs); err != nil {
+				continue
+			}
+
+			// On x86_64, the syscall number is in the ORIG_RAX register
+			syscallNum := regs.Orig_rax
+
+			// Record the syscall
+			syscallName := getSyscallName(syscallNum)
+			syscallLog[syscallName]++
+
+			// Check for specific syscalls of interest
+			switch syscallNum {
+			case syscall.SYS_OPEN, syscall.SYS_OPENAT:
+				// For open syscalls, get the filename
+				// This is simplified - in a real implementation you would read the memory
+				// at the address in the registers to get the filename
+				fileOps["open"]++
+			case syscall.SYS_READ:
+				fileOps["read"]++
+			case syscall.SYS_WRITE:
+				fileOps["write"]++
+			case syscall.SYS_SOCKET, syscall.SYS_CONNECT:
+				networkActivity = true
+			}
+
+			// Allow the process to execute the syscall and stop at the next one
+			err = syscall.PtraceSyscall(container.ProcessID, 0)
+			if err != nil {
+				break
+			}
+
+			// Wait for syscall completion
+			_, err = syscall.Wait4(container.ProcessID, &status, 0, nil)
+			if err != nil {
+				break
+			}
+
+			// If the process exited, we're done
+			if status.Exited() {
+				break
+			}
+		}
+
+		traceDone <- true
+	}()
+
+	// 7. Wait for the process to complete with a timeout
+	done := make(chan error)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	// Set a timeout for execution
+	timeout := time.After(30 * time.Second)
+
+	// Wait for either completion or timeout
+	var exitCode int
+	select {
+	case err := <-done:
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				exitCode = exitErr.ExitCode()
+			} else {
+				exitCode = -1
+			}
+		}
+	case <-timeout:
+		// Kill the process if it times out
+		cmd.Process.Kill()
+		executionLog.WriteString("ERROR: Process execution timed out\n")
+		exitCode = -1
+	}
+
+	// Wait for tracing to complete
+	<-traceDone
+
+	// 8. Collect and record execution data
+	executionTime := time.Since(startTime)
+
+	// Record syscalls
+	executionLog.WriteString("System Calls:\n")
+	for syscall, count := range syscallLog {
+		executionLog.WriteString(fmt.Sprintf("  %s: %d times\n", syscall, count))
+	}
+
+	// Record file operations
+	executionLog.WriteString("File Operations:\n")
+	for op, count := range fileOps {
+		executionLog.WriteString(fmt.Sprintf("  %s: %d times\n", op, count))
+	}
+
+	// Record network activity
+	if networkActivity {
+		executionLog.WriteString("Network Activity: Detected\n")
+	} else {
+		executionLog.WriteString("Network Activity: None detected\n")
+	}
+
+	// Record resource usage
+	if cgroupPath != "" {
+		memUsage := e.getCgroupMemoryUsage(cgroupPath)
+		cpuUsage := e.getCgroupCpuUsage(cgroupPath)
+		executionLog.WriteString(fmt.Sprintf("Resource Usage: Memory: %d KB, CPU: %.2f%%\n",
+			memUsage/1024, cpuUsage))
+	}
+
+	// Record stdout/stderr
+	if stdout.Len() > 0 {
+		executionLog.WriteString("Standard Output:\n")
+		executionLog.WriteString(stdout.String())
+	}
+
+	if stderr.Len() > 0 {
+		executionLog.WriteString("Standard Error:\n")
+		executionLog.WriteString(stderr.String())
+	}
+
+	// Record exit code
+	executionLog.WriteString(fmt.Sprintf("Process Completed: Exit code %d\n", exitCode))
+	executionLog.WriteString(fmt.Sprintf("Execution Time: %v\n", executionTime))
+
+	// 9. Clean up
+	if cgroupPath != "" {
+		e.cleanupCgroup(cgroupPath)
+	}
+
+	// Remove the binary
+	os.Remove(binaryPath)
+
+	return executionLog.String()
 }
 
 func (e *AASABEngine) runShieldValidations(binary []byte, container *CustomContainer) map[string]interface{} {
@@ -362,4 +599,449 @@ func getSeverityName(severity ThreatSeverity) string {
 		CRITICAL: "CRITICAL",
 	}
 	return names[severity]
+}
+
+// Helper function to get syscall name from syscall number
+func getSyscallName(syscallNum uint64) string {
+	// This is a simplified mapping - in production you would have a complete mapping
+	syscallNames := map[uint64]string{
+		syscall.SYS_READ:                   "read",
+		syscall.SYS_WRITE:                  "write",
+		syscall.SYS_OPEN:                   "open",
+		syscall.SYS_CLOSE:                  "close",
+		syscall.SYS_STAT:                   "stat",
+		syscall.SYS_FSTAT:                  "fstat",
+		syscall.SYS_LSTAT:                  "lstat",
+		syscall.SYS_POLL:                   "poll",
+		syscall.SYS_LSEEK:                  "lseek",
+		syscall.SYS_MMAP:                   "mmap",
+		syscall.SYS_MPROTECT:               "mprotect",
+		syscall.SYS_MUNMAP:                 "munmap",
+		syscall.SYS_BRK:                    "brk",
+		syscall.SYS_SOCKET:                 "socket",
+		syscall.SYS_CONNECT:                "connect",
+		syscall.SYS_ACCEPT:                 "accept",
+		syscall.SYS_SENDTO:                 "sendto",
+		syscall.SYS_RECVFROM:               "recvfrom",
+		syscall.SYS_BIND:                   "bind",
+		syscall.SYS_LISTEN:                 "listen",
+		syscall.SYS_GETSOCKNAME:            "getsockname",
+		syscall.SYS_GETPEERNAME:            "getpeername",
+		syscall.SYS_SOCKETPAIR:             "socketpair",
+		syscall.SYS_SETSOCKOPT:             "setsockopt",
+		syscall.SYS_GETSOCKOPT:             "getsockopt",
+		syscall.SYS_CLONE:                  "clone",
+		syscall.SYS_FORK:                   "fork",
+		syscall.SYS_VFORK:                  "vfork",
+		syscall.SYS_EXECVE:                 "execve",
+		syscall.SYS_EXIT:                   "exit",
+		syscall.SYS_WAIT4:                  "wait4",
+		syscall.SYS_KILL:                   "kill",
+		syscall.SYS_UNAME:                  "uname",
+		syscall.SYS_SEMGET:                 "semget",
+		syscall.SYS_SEMOP:                  "semop",
+		syscall.SYS_SEMCTL:                 "semctl",
+		syscall.SYS_SHMDT:                  "shmdt",
+		syscall.SYS_MSGGET:                 "msgget",
+		syscall.SYS_MSGSND:                 "msgsnd",
+		syscall.SYS_MSGRCV:                 "msgrcv",
+		syscall.SYS_MSGCTL:                 "msgctl",
+		syscall.SYS_FCNTL:                  "fcntl",
+		syscall.SYS_FLOCK:                  "flock",
+		syscall.SYS_FSYNC:                  "fsync",
+		syscall.SYS_FDATASYNC:              "fdatasync",
+		syscall.SYS_TRUNCATE:               "truncate",
+		syscall.SYS_FTRUNCATE:              "ftruncate",
+		syscall.SYS_GETDENTS:               "getdents",
+		syscall.SYS_GETCWD:                 "getcwd",
+		syscall.SYS_CHDIR:                  "chdir",
+		syscall.SYS_FCHDIR:                 "fchdir",
+		syscall.SYS_RENAME:                 "rename",
+		syscall.SYS_MKDIR:                  "mkdir",
+		syscall.SYS_RMDIR:                  "rmdir",
+		syscall.SYS_CREAT:                  "creat",
+		syscall.SYS_LINK:                   "link",
+		syscall.SYS_UNLINK:                 "unlink",
+		syscall.SYS_SYMLINK:                "symlink",
+		syscall.SYS_READLINK:               "readlink",
+		syscall.SYS_CHMOD:                  "chmod",
+		syscall.SYS_FCHMOD:                 "fchmod",
+		syscall.SYS_CHOWN:                  "chown",
+		syscall.SYS_FCHOWN:                 "fchown",
+		syscall.SYS_LCHOWN:                 "lchown",
+		syscall.SYS_UMASK:                  "umask",
+		syscall.SYS_GETTIMEOFDAY:           "gettimeofday",
+		syscall.SYS_GETRLIMIT:              "getrlimit",
+		syscall.SYS_GETRUSAGE:              "getrusage",
+		syscall.SYS_SYSINFO:                "sysinfo",
+		syscall.SYS_TIMES:                  "times",
+		syscall.SYS_PTRACE:                 "ptrace",
+		syscall.SYS_GETUID:                 "getuid",
+		syscall.SYS_SYSLOG:                 "syslog",
+		syscall.SYS_GETGID:                 "getgid",
+		syscall.SYS_SETUID:                 "setuid",
+		syscall.SYS_SETGID:                 "setgid",
+		syscall.SYS_GETEUID:                "geteuid",
+		syscall.SYS_GETEGID:                "getegid",
+		syscall.SYS_SETPGID:                "setpgid",
+		syscall.SYS_GETPPID:                "getppid",
+		syscall.SYS_GETPGRP:                "getpgrp",
+		syscall.SYS_SETSID:                 "setsid",
+		syscall.SYS_SETREUID:               "setreuid",
+		syscall.SYS_SETREGID:               "setregid",
+		syscall.SYS_GETGROUPS:              "getgroups",
+		syscall.SYS_SETGROUPS:              "setgroups",
+		syscall.SYS_SETRESUID:              "setresuid",
+		syscall.SYS_GETRESUID:              "getresuid",
+		syscall.SYS_SETRESGID:              "setresgid",
+		syscall.SYS_GETRESGID:              "getresgid",
+		syscall.SYS_GETPGID:                "getpgid",
+		syscall.SYS_SETFSUID:               "setfsuid",
+		syscall.SYS_SETFSGID:               "setfsgid",
+		syscall.SYS_GETSID:                 "getsid",
+		syscall.SYS_CAPGET:                 "capget",
+		syscall.SYS_CAPSET:                 "capset",
+		syscall.SYS_RT_SIGPENDING:          "rt_sigpending",
+		syscall.SYS_RT_SIGTIMEDWAIT:        "rt_sigtimedwait",
+		syscall.SYS_RT_SIGQUEUEINFO:        "rt_sigqueueinfo",
+		syscall.SYS_RT_SIGSUSPEND:          "rt_sigsuspend",
+		syscall.SYS_SIGALTSTACK:            "sigaltstack",
+		syscall.SYS_UTIME:                  "utime",
+		syscall.SYS_MKNOD:                  "mknod",
+		syscall.SYS_USELIB:                 "uselib",
+		syscall.SYS_PERSONALITY:            "personality",
+		syscall.SYS_USTAT:                  "ustat",
+		syscall.SYS_STATFS:                 "statfs",
+		syscall.SYS_FSTATFS:                "fstatfs",
+		syscall.SYS_SYSFS:                  "sysfs",
+		syscall.SYS_GETPRIORITY:            "getpriority",
+		syscall.SYS_SETPRIORITY:            "setpriority",
+		syscall.SYS_SCHED_SETPARAM:         "sched_setparam",
+		syscall.SYS_SCHED_GETPARAM:         "sched_getparam",
+		syscall.SYS_SCHED_SETSCHEDULER:     "sched_setscheduler",
+		syscall.SYS_SCHED_GETSCHEDULER:     "sched_getscheduler",
+		syscall.SYS_SCHED_GET_PRIORITY_MAX: "sched_get_priority_max",
+		syscall.SYS_SCHED_GET_PRIORITY_MIN: "sched_get_priority_min",
+		syscall.SYS_SCHED_RR_GET_INTERVAL:  "sched_rr_get_interval",
+		syscall.SYS_MLOCK:                  "mlock",
+		syscall.SYS_MUNLOCK:                "munlock",
+		syscall.SYS_MLOCKALL:               "mlockall",
+		syscall.SYS_MUNLOCKALL:             "munlockall",
+		syscall.SYS_VHANGUP:                "vhangup",
+		syscall.SYS_MODIFY_LDT:             "modify_ldt",
+		syscall.SYS_PIVOT_ROOT:             "pivot_root",
+		syscall.SYS_PRCTL:                  "prctl",
+		syscall.SYS_ARCH_PRCTL:             "arch_prctl",
+		syscall.SYS_ADJTIMEX:               "adjtimex",
+		syscall.SYS_SETRLIMIT:              "setrlimit",
+		syscall.SYS_CHROOT:                 "chroot",
+		syscall.SYS_SYNC:                   "sync",
+		syscall.SYS_ACCT:                   "acct",
+		syscall.SYS_SETTIMEOFDAY:           "settimeofday",
+		syscall.SYS_MOUNT:                  "mount",
+		syscall.SYS_UMOUNT2:                "umount2",
+		syscall.SYS_SWAPON:                 "swapon",
+		syscall.SYS_SWAPOFF:                "swapoff",
+		syscall.SYS_REBOOT:                 "reboot",
+		syscall.SYS_SETHOSTNAME:            "sethostname",
+		syscall.SYS_SETDOMAINNAME:          "setdomainname",
+		syscall.SYS_IOPL:                   "iopl",
+		syscall.SYS_IOPERM:                 "ioperm",
+		syscall.SYS_CREATE_MODULE:          "create_module",
+		syscall.SYS_INIT_MODULE:            "init_module",
+		syscall.SYS_DELETE_MODULE:          "delete_module",
+		syscall.SYS_GET_KERNEL_SYMS:        "get_kernel_syms",
+		syscall.SYS_QUERY_MODULE:           "query_module",
+		syscall.SYS_QUOTACTL:               "quotactl",
+		syscall.SYS_NFSSERVCTL:             "nfsservctl",
+		syscall.SYS_GETPMSG:                "getpmsg",
+		syscall.SYS_PUTPMSG:                "putpmsg",
+		syscall.SYS_AFS_SYSCALL:            "afs_syscall",
+		syscall.SYS_TUXCALL:                "tuxcall",
+		syscall.SYS_SECURITY:               "security",
+		syscall.SYS_GETTID:                 "gettid",
+		syscall.SYS_READAHEAD:              "readahead",
+		syscall.SYS_SETXATTR:               "setxattr",
+		syscall.SYS_LSETXATTR:              "lsetxattr",
+		syscall.SYS_FSETXATTR:              "fsetxattr",
+		syscall.SYS_GETXATTR:               "getxattr",
+		syscall.SYS_LGETXATTR:              "lgetxattr",
+		syscall.SYS_FGETXATTR:              "fgetxattr",
+		syscall.SYS_LISTXATTR:              "listxattr",
+		syscall.SYS_LLISTXATTR:             "llistxattr",
+		syscall.SYS_FLISTXATTR:             "flistxattr",
+		syscall.SYS_REMOVEXATTR:            "removexattr",
+		syscall.SYS_LREMOVEXATTR:           "lremovexattr",
+		syscall.SYS_FREMOVEXATTR:           "fremovexattr",
+		syscall.SYS_TKILL:                  "tkill",
+		syscall.SYS_TIME:                   "time",
+		syscall.SYS_FUTEX:                  "futex",
+		syscall.SYS_SCHED_SETAFFINITY:      "sched_setaffinity",
+		syscall.SYS_SCHED_GETAFFINITY:      "sched_getaffinity",
+		syscall.SYS_SET_THREAD_AREA:        "set_thread_area",
+		syscall.SYS_IO_SETUP:               "io_setup",
+		syscall.SYS_IO_DESTROY:             "io_destroy",
+		syscall.SYS_IO_GETEVENTS:           "io_getevents",
+		syscall.SYS_IO_SUBMIT:              "io_submit",
+		syscall.SYS_IO_CANCEL:              "io_cancel",
+		syscall.SYS_GET_THREAD_AREA:        "get_thread_area",
+		syscall.SYS_LOOKUP_DCOOKIE:         "lookup_dcookie",
+		syscall.SYS_EPOLL_CREATE:           "epoll_create",
+		syscall.SYS_EPOLL_CTL_OLD:          "epoll_ctl_old",
+		syscall.SYS_EPOLL_WAIT_OLD:         "epoll_wait_old",
+		syscall.SYS_REMAP_FILE_PAGES:       "remap_file_pages",
+		syscall.SYS_GETDENTS64:             "getdents64",
+		syscall.SYS_SET_TID_ADDRESS:        "set_tid_address",
+		syscall.SYS_RESTART_SYSCALL:        "restart_syscall",
+		syscall.SYS_SEMTIMEDOP:             "semtimedop",
+		syscall.SYS_FADVISE64:              "fadvise64",
+		syscall.SYS_TIMER_CREATE:           "timer_create",
+		syscall.SYS_TIMER_SETTIME:          "timer_settime",
+		syscall.SYS_TIMER_GETTIME:          "timer_gettime",
+		syscall.SYS_TIMER_GETOVERRUN:       "timer_getoverrun",
+		syscall.SYS_TIMER_DELETE:           "timer_delete",
+		syscall.SYS_CLOCK_SETTIME:          "clock_settime",
+		syscall.SYS_CLOCK_GETTIME:          "clock_gettime",
+		syscall.SYS_CLOCK_GETRES:           "clock_getres",
+		syscall.SYS_CLOCK_NANOSLEEP:        "clock_nanosleep",
+		syscall.SYS_EXIT_GROUP:             "exit_group",
+		syscall.SYS_EPOLL_WAIT:             "epoll_wait",
+		syscall.SYS_EPOLL_CTL:              "epoll_ctl",
+		syscall.SYS_TGKILL:                 "tgkill",
+		syscall.SYS_UTIMES:                 "utimes",
+		syscall.SYS_VSERVER:                "vserver",
+		syscall.SYS_MBIND:                  "mbind",
+		syscall.SYS_SET_MEMPOLICY:          "set_mempolicy",
+		syscall.SYS_GET_MEMPOLICY:          "get_mempolicy",
+		syscall.SYS_MQ_OPEN:                "mq_open",
+		syscall.SYS_MQ_UNLINK:              "mq_unlink",
+		syscall.SYS_MQ_TIMEDSEND:           "mq_timedsend",
+		syscall.SYS_MQ_TIMEDRECEIVE:        "mq_timedreceive",
+		syscall.SYS_MQ_NOTIFY:              "mq_notify",
+		syscall.SYS_MQ_GETSETATTR:          "mq_getsetattr",
+		syscall.SYS_KEXEC_LOAD:             "kexec_load",
+		syscall.SYS_WAITID:                 "waitid",
+		syscall.SYS_ADD_KEY:                "add_key",
+		syscall.SYS_REQUEST_KEY:            "request_key",
+		syscall.SYS_KEYCTL:                 "keyctl",
+		syscall.SYS_IOPRIO_SET:             "ioprio_set",
+		syscall.SYS_IOPRIO_GET:             "ioprio_get",
+		syscall.SYS_INOTIFY_INIT:           "inotify_init",
+		syscall.SYS_INOTIFY_ADD_WATCH:      "inotify_add_watch",
+		syscall.SYS_INOTIFY_RM_WATCH:       "inotify_rm_watch",
+		syscall.SYS_MIGRATE_PAGES:          "migrate_pages",
+		syscall.SYS_OPENAT:                 "openat",
+		syscall.SYS_MKDIRAT:                "mkdirat",
+		syscall.SYS_MKNODAT:                "mknodat",
+		syscall.SYS_FCHOWNAT:               "fchownat",
+		syscall.SYS_FUTIMESAT:              "futimesat",
+		syscall.SYS_NEWFSTATAT:             "newfstatat",
+		syscall.SYS_UNLINKAT:               "unlinkat",
+		syscall.SYS_RENAMEAT:               "renameat",
+		syscall.SYS_LINKAT:                 "linkat",
+		syscall.SYS_SYMLINKAT:              "symlinkat",
+		syscall.SYS_READLINKAT:             "readlinkat",
+		syscall.SYS_FCHMODAT:               "fchmodat",
+		syscall.SYS_FACCESSAT:              "faccessat",
+		syscall.SYS_PSELECT6:               "pselect6",
+		syscall.SYS_PPOLL:                  "ppoll",
+		syscall.SYS_UNSHARE:                "unshare",
+		syscall.SYS_SET_ROBUST_LIST:        "set_robust_list",
+		syscall.SYS_GET_ROBUST_LIST:        "get_robust_list",
+		syscall.SYS_SPLICE:                 "splice",
+		syscall.SYS_TEE:                    "tee",
+		syscall.SYS_SYNC_FILE_RANGE:        "sync_file_range",
+		syscall.SYS_VMSPLICE:               "vmsplice",
+		syscall.SYS_MOVE_PAGES:             "move_pages",
+		syscall.SYS_UTIMENSAT:              "utimensat",
+		syscall.SYS_EPOLL_PWAIT:            "epoll_pwait",
+		syscall.SYS_SIGNALFD:               "signalfd",
+		syscall.SYS_TIMERFD_CREATE:         "timerfd_create",
+		syscall.SYS_EVENTFD:                "eventfd",
+		syscall.SYS_FALLOCATE:              "fallocate",
+		syscall.SYS_TIMERFD_SETTIME:        "timerfd_settime",
+		syscall.SYS_TIMERFD_GETTIME:        "timerfd_gettime",
+		syscall.SYS_ACCEPT4:                "accept4",
+		syscall.SYS_SIGNALFD4:              "signalfd4",
+		syscall.SYS_EVENTFD2:               "eventfd2",
+		syscall.SYS_EPOLL_CREATE1:          "epoll_create1",
+		syscall.SYS_DUP3:                   "dup3",
+		syscall.SYS_PIPE2:                  "pipe2",
+		syscall.SYS_INOTIFY_INIT1:          "inotify_init1",
+		syscall.SYS_PREADV:                 "preadv",
+		syscall.SYS_PWRITEV:                "pwritev",
+		syscall.SYS_RT_TGSIGQUEUEINFO:      "rt_tgsigqueueinfo",
+		syscall.SYS_PERF_EVENT_OPEN:        "perf_event_open",
+		syscall.SYS_RECVMMSG:               "recvmmsg",
+		syscall.SYS_FANOTIFY_INIT:          "fanotify_init",
+		syscall.SYS_FANOTIFY_MARK:          "fanotify_mark",
+		syscall.SYS_PRLIMIT64:              "prlimit64",
+		// syscall.SYS_NAME_TO_HANDLE_AT:      "name_to_handle_at", // Not available on all platforms
+		// syscall.SYS_OPEN_BY_HANDLE_AT:      "open_by_handle_at", // Not available on all platforms
+		// syscall.SYS_CLOCK_ADJTIME:          "clock_adjtime", // Not available on all platforms
+		// syscall.SYS_SYNCFS:                 "syncfs", // Not available on all platforms
+		// syscall.SYS_SENDMMSG:               "sendmmsg", // Not available on all platforms
+		// syscall.SYS_SETNS:                  "setns", // Not available on all platforms
+		// syscall.SYS_GETCPU:                 "getcpu", // Not available on all platforms
+		// syscall.SYS_PROCESS_VM_READV:       "process_vm_readv", // Not available on all platforms
+		// syscall.SYS_PROCESS_VM_WRITEV:      "process_vm_writev", // Not available on all platforms
+		// syscall.SYS_KCMP:                   "kcmp", // Not available on all platforms
+		// syscall.SYS_FINIT_MODULE:           "finit_module", // Not available on all platforms
+	}
+
+	if name, ok := syscallNames[syscallNum]; ok {
+		return name
+	}
+	return fmt.Sprintf("syscall_%d", syscallNum)
+}
+
+// Setup cgroup for resource limiting
+func (e *AASABEngine) setupCgroup(container *CustomContainer) string {
+	// This is a simplified implementation - in production you would use a more robust approach
+	// Check if cgroups v2 is available
+	cgroupsV2Path := "/sys/fs/cgroup"
+	if _, err := os.Stat(cgroupsV2Path); err == nil {
+		// Create a cgroup for this container
+		cgroupPath := filepath.Join(cgroupsV2Path, "aasab", container.ID)
+		if err := os.MkdirAll(cgroupPath, 0755); err != nil {
+			log.Printf("Failed to create cgroup: %v", err)
+			return ""
+		}
+
+		// Set memory limit
+		memLimitPath := filepath.Join(cgroupPath, "memory.max")
+		if err := ioutil.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
+			log.Printf("Failed to set memory limit: %v", err)
+		}
+
+		// Set CPU limit (simplified)
+		cpuLimitPath := filepath.Join(cgroupPath, "cpu.max")
+		cpuQuota := int(container.CPULimit * 100000)
+		if err := ioutil.WriteFile(cpuLimitPath, []byte(fmt.Sprintf("%d 100000", cpuQuota)), 0644); err != nil {
+			log.Printf("Failed to set CPU limit: %v", err)
+		}
+
+		// Add the process to the cgroup
+		procsPath := filepath.Join(cgroupPath, "cgroup.procs")
+		if err := ioutil.WriteFile(procsPath, []byte(fmt.Sprintf("%d", container.ProcessID)), 0644); err != nil {
+			log.Printf("Failed to add process to cgroup: %v", err)
+		}
+
+		return cgroupPath
+	}
+
+	// Fallback to cgroups v1
+	cgroupsV1Path := "/sys/fs/cgroup"
+	if _, err := os.Stat(cgroupsV1Path); err == nil {
+		// Create memory cgroup
+		memCgroupPath := filepath.Join(cgroupsV1Path, "memory", "aasab", container.ID)
+		if err := os.MkdirAll(memCgroupPath, 0755); err != nil {
+			log.Printf("Failed to create memory cgroup: %v", err)
+		} else {
+			// Set memory limit
+			memLimitPath := filepath.Join(memCgroupPath, "memory.limit_in_bytes")
+			if err := ioutil.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
+				log.Printf("Failed to set memory limit: %v", err)
+			}
+
+			// Add the process to the cgroup
+			procsPath := filepath.Join(memCgroupPath, "cgroup.procs")
+			if err := ioutil.WriteFile(procsPath, []byte(fmt.Sprintf("%d", container.ProcessID)), 0644); err != nil {
+				log.Printf("Failed to add process to memory cgroup: %v", err)
+			}
+		}
+
+		// Create CPU cgroup
+		cpuCgroupPath := filepath.Join(cgroupsV1Path, "cpu", "aasab", container.ID)
+		if err := os.MkdirAll(cpuCgroupPath, 0755); err != nil {
+			log.Printf("Failed to create CPU cgroup: %v", err)
+		} else {
+			// Set CPU limit
+			cpuQuota := int(container.CPULimit * 100000)
+			cpuQuotaPath := filepath.Join(cpuCgroupPath, "cpu.cfs_quota_us")
+			if err := ioutil.WriteFile(cpuQuotaPath, []byte(fmt.Sprintf("%d", cpuQuota)), 0644); err != nil {
+				log.Printf("Failed to set CPU quota: %v", err)
+			}
+
+			cpuPeriodPath := filepath.Join(cpuCgroupPath, "cpu.cfs_period_us")
+			if err := ioutil.WriteFile(cpuPeriodPath, []byte("100000"), 0644); err != nil {
+				log.Printf("Failed to set CPU period: %v", err)
+			}
+
+			// Add the process to the cgroup
+			procsPath := filepath.Join(cpuCgroupPath, "cgroup.procs")
+			if err := ioutil.WriteFile(procsPath, []byte(fmt.Sprintf("%d", container.ProcessID)), 0644); err != nil {
+				log.Printf("Failed to add process to CPU cgroup: %v", err)
+			}
+		}
+
+		return filepath.Join(cgroupsV1Path, "aasab", container.ID)
+	}
+
+	return ""
+}
+
+// Clean up cgroup
+func (e *AASABEngine) cleanupCgroup(cgroupPath string) {
+	// Remove the cgroup
+	if err := os.RemoveAll(cgroupPath); err != nil {
+		log.Printf("Failed to remove cgroup: %v", err)
+	}
+}
+
+// Get memory usage from cgroup
+func (e *AASABEngine) getCgroupMemoryUsage(cgroupPath string) int64 {
+	// Try cgroups v2 first
+	memUsagePath := filepath.Join(cgroupPath, "memory.current")
+	if data, err := ioutil.ReadFile(memUsagePath); err == nil {
+		if usage, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			return usage
+		}
+	}
+
+	// Fallback to cgroups v1
+	memUsagePath = filepath.Join(cgroupPath, "memory.usage_in_bytes")
+	if data, err := ioutil.ReadFile(memUsagePath); err == nil {
+		if usage, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			return usage
+		}
+	}
+
+	return 0
+}
+
+// Get CPU usage from cgroup
+func (e *AASABEngine) getCgroupCpuUsage(cgroupPath string) float64 {
+	// This is a simplified implementation - in production you would calculate
+	// CPU usage based on cpu.stat or cpuacct.usage
+
+	// Try cgroups v2 first
+	cpuStatPath := filepath.Join(cgroupPath, "cpu.stat")
+	if data, err := ioutil.ReadFile(cpuStatPath); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "usage_usec") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					if usageMicros, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
+						// Convert microseconds to percentage (simplified)
+						elapsedTime := float64(time.Now().UnixNano()/1000 - time.Now().Add(-1*time.Second).UnixNano()/1000)
+						return float64(usageMicros) / elapsedTime * 100
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback to cgroups v1
+	cpuUsagePath := filepath.Join(cgroupPath, "cpuacct.usage")
+	if data, err := ioutil.ReadFile(cpuUsagePath); err == nil {
+		if usage, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			// Convert nanoseconds to percentage (simplified)
+			elapsedTime := float64(time.Now().UnixNano() - time.Now().Add(-1*time.Second).UnixNano())
+			return float64(usage) / elapsedTime * 100
+		}
+	}
+
+	return 0.0
 }

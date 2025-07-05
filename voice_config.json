@@ -1,0 +1,7 @@
+{
+    "enabled": false,
+    "api_key": "YOUR_LIVEKIT_API_KEY",
+    "api_secret": "YOUR_LIVEKIT_API_SECRET",
+    "ws_url": "wss://your-livekit-instance.example.com",
+    "output_dir": "voice_reports"
+}

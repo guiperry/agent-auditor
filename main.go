@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -41,26 +39,26 @@ const (
 )
 
 type ThreatDetection struct {
-	Vector      ThreatVector               `json:"vector"`
-	VectorName  string                     `json:"vector_name"`
-	Severity    ThreatSeverity             `json:"severity"`
-	SeverityName string                    `json:"severity_name"`
-	Confidence  float64                    `json:"confidence"`
-	Evidence    []string                   `json:"evidence"`
-	Timestamp   time.Time                  `json:"timestamp"`
-	Details     map[string]interface{}     `json:"details"`
+	Vector       ThreatVector           `json:"vector"`
+	VectorName   string                 `json:"vector_name"`
+	Severity     ThreatSeverity         `json:"severity"`
+	SeverityName string                 `json:"severity_name"`
+	Confidence   float64                `json:"confidence"`
+	Evidence     []string               `json:"evidence"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Details      map[string]interface{} `json:"details"`
 }
 
 type AuditReport struct {
-	AgentHash       string                     `json:"agent_hash"`
-	AgentName       string                     `json:"agent_name"`
-	Timestamp       time.Time                  `json:"timestamp"`
-	Threats         []ThreatDetection          `json:"threats"`
-	ShieldResults   map[string]interface{}     `json:"shield_results"`
-	OverallRisk     float64                    `json:"overall_risk"`
-	RiskLevel       string                     `json:"risk_level"`
-	Recommendations []string                   `json:"recommendations"`
-	AegonMessage    string                     `json:"aegon_message"`
+	AgentHash       string                 `json:"agent_hash"`
+	AgentName       string                 `json:"agent_name"`
+	Timestamp       time.Time              `json:"timestamp"`
+	Threats         []ThreatDetection      `json:"threats"`
+	ShieldResults   map[string]interface{} `json:"shield_results"`
+	OverallRisk     float64                `json:"overall_risk"`
+	RiskLevel       string                 `json:"risk_level"`
+	Recommendations []string               `json:"recommendations"`
+	AegonMessage    string                 `json:"aegon_message"`
 }
 
 type WebSocketMessage struct {
@@ -75,34 +73,60 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var engine *AASABEngine
+var (
+	engine       *AASABEngine
+	voiceManager *VoiceInferenceManager
+)
 
 func main() {
 	// Initialize AASAB engine
 	engine = NewAASABEngine()
 	defer engine.auditLog.Close()
 
-	// Create uploads directory
+	// Initialize voice inference manager
+	var err error
+	voiceManager, err = NewVoiceInferenceManager("voice_config.json")
+	if err != nil {
+		log.Printf("Warning: Failed to initialize voice inference: %v", err)
+		// Continue without voice inference
+		voiceManager = &VoiceInferenceManager{
+			config: VoiceInferenceConfig{Enabled: false},
+		}
+	}
+
+	// Create required directories
 	os.MkdirAll("uploads", 0755)
 	os.MkdirAll("reports", 0755)
+	if voiceManager.IsEnabled() {
+		os.MkdirAll(voiceManager.config.OutputDir, 0755)
+	}
 
 	// Setup routes
 	r := mux.NewRouter()
-	
+
 	// Static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 	
+	// Voice reports (if enabled)
+	if voiceManager.IsEnabled() {
+		r.PathPrefix("/voice_reports/").Handler(http.StripPrefix("/voice_reports/", http.FileServer(http.Dir(voiceManager.config.OutputDir))))
+	}
+
 	// API routes
 	r.HandleFunc("/", homeHandler).Methods("GET")
 	r.HandleFunc("/api/upload", uploadHandler).Methods("POST")
 	r.HandleFunc("/api/audit/{filename}", auditHandler).Methods("POST")
 	r.HandleFunc("/api/reports", reportsHandler).Methods("GET")
 	r.HandleFunc("/api/report/{hash}", reportHandler).Methods("GET")
+	r.HandleFunc("/api/voice/{hash}", voiceReportHandler).Methods("GET")
 	r.HandleFunc("/ws", websocketHandler)
 
 	fmt.Println("🤖 Aegon - The Agent Auditor is awakening...")
-	fmt.Println("🔍 AASAB Web Interface starting on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	if voiceManager.IsEnabled() {
+		fmt.Println("🔊 Voice inference enabled - Aegon can now speak!")
+	}
+	fmt.Println("🔍 AASAB Web Interface starting on http://localhost:8084")
+	log.Fatal(http.ListenAndServe(":8084", r))
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -122,10 +146,10 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	// Create unique filename
 	timestamp := time.Now().Unix()
 	filename := fmt.Sprintf("%d_%s", timestamp, handler.Filename)
-	filepath := filepath.Join("uploads", filename)
+	filePath := filepath.Join("uploads", filename)
 
 	// Save file
-	dst, err := os.Create(filepath)
+	dst, err := os.Create(filePath)
 	if err != nil {
 		http.Error(w, "Error saving file", http.StatusInternalServerError)
 		return
@@ -152,11 +176,11 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 func auditHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	filename := vars["filename"]
-	
-	filepath := filepath.Join("uploads", filename)
-	
+
+	filePath := filepath.Join("uploads", filename)
+
 	// Run audit
-	report, err := engine.AuditAgent(filepath)
+	report, err := engine.AuditAgent(filePath)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Audit failed: %v", err), http.StatusInternalServerError)
 		return
@@ -164,10 +188,10 @@ func auditHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Add agent name from filename
 	report.AgentName = strings.TrimSuffix(filename, filepath.Ext(filename))
-	
+
 	// Generate Aegon's message
 	report.AegonMessage = generateAegonMessage(report)
-	
+
 	// Save report
 	reportPath := filepath.Join("reports", fmt.Sprintf("report_%s.json", report.AgentHash[:8]))
 	reportJSON, _ := json.MarshalIndent(report, "", "  ")
@@ -190,12 +214,12 @@ func reportsHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		
+
 		var report AuditReport
 		if err := json.Unmarshal(data, &report); err != nil {
 			continue
 		}
-		
+
 		summary := map[string]interface{}{
 			"hash":         report.AgentHash[:8],
 			"agent_name":   report.AgentName,
@@ -214,7 +238,7 @@ func reportsHandler(w http.ResponseWriter, r *http.Request) {
 func reportHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	hash := vars["hash"]
-	
+
 	reportPath := filepath.Join("reports", fmt.Sprintf("report_%s.json", hash))
 	data, err := os.ReadFile(reportPath)
 	if err != nil {
@@ -222,8 +246,51 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If voice inference is enabled, generate a voice report asynchronously
+	if voiceManager.IsEnabled() {
+		voiceManager.GenerateVoiceReportAsync(reportPath, nil)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
+}
+
+func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	hash := vars["hash"]
+
+	// Check if voice inference is enabled
+	if !voiceManager.IsEnabled() {
+		http.Error(w, "Voice inference is not enabled", http.StatusNotImplemented)
+		return
+	}
+
+	// Check if we already have a voice report for this hash
+	audioPath, exists := voiceManager.GetAudioPathForReport(hash)
+	if !exists {
+		// If not, try to generate one
+		reportPath := filepath.Join("reports", fmt.Sprintf("report_%s.json", hash))
+		var err error
+		audioPath, err = voiceManager.GenerateVoiceReport(reportPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to generate voice report: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Check if the file exists
+	if _, err := os.Stat(audioPath); err != nil {
+		http.Error(w, "Voice report not found", http.StatusNotFound)
+		return
+	}
+
+	// Return the audio file path
+	response := map[string]string{
+		"audio_url": fmt.Sprintf("/voice_reports/%s", filepath.Base(audioPath)),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
@@ -248,7 +315,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
-		
+
 		// Echo back for now
 		conn.WriteJSON(msg)
 	}
@@ -257,30 +324,30 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 func generateAegonMessage(report *AuditReport) string {
 	riskLevel := getRiskLevel(report.OverallRisk)
 	threatCount := len(report.Threats)
-	
+
 	var message string
-	
+
 	switch riskLevel {
 	case "MINIMAL":
-		message = fmt.Sprintf("🤖 Aegon has completed his inspection of '%s'! This agent appears to be a well-behaved digital citizen. Aegon found %d potential concerns, but nothing that would keep him awake at night. The overall risk is MINIMAL - this agent has earned Aegon's digital seal of approval! ✅", 
+		message = fmt.Sprintf("🤖 Aegon has completed his inspection of '%s'! This agent appears to be a well-behaved digital citizen. Aegon found %d potential concerns, but nothing that would keep him awake at night. The overall risk is MINIMAL - this agent has earned Aegon's digital seal of approval! ✅",
 			report.AgentName, threatCount)
 	case "LOW":
-		message = fmt.Sprintf("🤖 Aegon has scrutinized '%s' with his digital magnifying glass! While this agent shows some minor quirks (%d threats detected), Aegon considers the risk LOW. Think of it as a mischievous but harmless digital pet - worth watching, but not dangerous. Aegon recommends some light supervision! 👀", 
+		message = fmt.Sprintf("🤖 Aegon has scrutinized '%s' with his digital magnifying glass! While this agent shows some minor quirks (%d threats detected), Aegon considers the risk LOW. Think of it as a mischievous but harmless digital pet - worth watching, but not dangerous. Aegon recommends some light supervision! 👀",
 			report.AgentName, threatCount)
 	case "MEDIUM":
-		message = fmt.Sprintf("🤖 Aegon's sensors are tingling after examining '%s'! This agent has caught Aegon's attention with %d concerning behaviors. The risk level is MEDIUM - like a teenager with car keys, this agent needs proper boundaries and supervision. Aegon suggests implementing the recommended safeguards! ⚠️", 
+		message = fmt.Sprintf("🤖 Aegon's sensors are tingling after examining '%s'! This agent has caught Aegon's attention with %d concerning behaviors. The risk level is MEDIUM - like a teenager with car keys, this agent needs proper boundaries and supervision. Aegon suggests implementing the recommended safeguards! ⚠️",
 			report.AgentName, threatCount)
 	case "HIGH":
-		message = fmt.Sprintf("🤖 Aegon's alarm bells are ringing! Agent '%s' has triggered %d significant security concerns. This is HIGH risk territory - like finding a wolf in sheep's clothing! Aegon strongly advises immediate attention to the security recommendations. This agent should not be trusted without proper containment! 🚨", 
+		message = fmt.Sprintf("🤖 Aegon's alarm bells are ringing! Agent '%s' has triggered %d significant security concerns. This is HIGH risk territory - like finding a wolf in sheep's clothing! Aegon strongly advises immediate attention to the security recommendations. This agent should not be trusted without proper containment! 🚨",
 			report.AgentName, threatCount)
 	case "CRITICAL":
-		message = fmt.Sprintf("🤖 AEGON'S EMERGENCY PROTOCOLS ACTIVATED! Agent '%s' has set off %d critical alarms in Aegon's security matrix! This is CRITICAL risk - like discovering a digital Trojan horse! Aegon demands immediate quarantine and comprehensive security review. DO NOT DEPLOY without addressing all identified threats! 🔥💀", 
+		message = fmt.Sprintf("🤖 AEGON'S EMERGENCY PROTOCOLS ACTIVATED! Agent '%s' has set off %d critical alarms in Aegon's security matrix! This is CRITICAL risk - like discovering a digital Trojan horse! Aegon demands immediate quarantine and comprehensive security review. DO NOT DEPLOY without addressing all identified threats! 🔥💀",
 			report.AgentName, threatCount)
 	default:
-		message = fmt.Sprintf("🤖 Aegon has completed his analysis of '%s'. %d threats detected with %s risk level. Aegon recommends reviewing the detailed findings!", 
+		message = fmt.Sprintf("🤖 Aegon has completed his analysis of '%s'. %d threats detected with %s risk level. Aegon recommends reviewing the detailed findings!",
 			report.AgentName, threatCount, riskLevel)
 	}
-	
+
 	// Add threat-specific commentary
 	if threatCount > 0 {
 		message += "\n\n🔍 Aegon's specific concerns include:"
@@ -288,15 +355,15 @@ func generateAegonMessage(report *AuditReport) string {
 		for _, threat := range report.Threats {
 			threatTypes[threat.Vector]++
 		}
-		
+
 		for vector, count := range threatTypes {
 			threatName := getThreatName(vector)
 			message += fmt.Sprintf("\n• %s (%d instances) - %s", threatName, count, getAegonThreatComment(vector))
 		}
 	}
-	
+
 	message += "\n\n🛡️ Aegon stands vigilant, protecting the digital realm one audit at a time!"
-	
+
 	return message
 }
 

@@ -38,7 +38,7 @@
                         <div class="upload-content">
                             <div class="upload-icon-large">📁</div>
                             <p>Drop your agent binary here or <span class="upload-link">click to browse</span></p>
-                            <small>Supported formats: .bin, .exe, .py, .js, .go</small>
+                            <small>Supported formats: .wasm .bin, .exe, .py, .js, .go</small>
                         </div>
                     </div>
                     
@@ -78,6 +78,19 @@
                         <div class="message-avatar">🤖</div>
                         <div class="message-content">
                             <p id="aegonText">Aegon is preparing his report...</p>
+                            <div class="voice-controls" id="voiceControls" style="display: none;">
+                                <div class="voice-loading" id="voiceLoading" style="display: none;">
+                                    <div class="spinner"></div>
+                                    <span>Aegon is generating the voice report...</span>
+                                </div>
+                                <audio id="aegonVoice" controls style="width: 100%; margin-top: 10px; display: none;" preload="none">
+                                    <source id="aegonVoiceSource" src="" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                <button id="playVoiceBtn" class="btn btn-small" style="display: none;">
+                                    🔊 Listen to Aegon's Voice Report
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -172,5 +185,6 @@
     </div>
 
     <script src="/static/script.js"></script>
+    <script src="/static/voice-integration.js"></script>
 </body>
 </html>
