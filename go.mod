@@ -11,7 +11,6 @@ require (
 )
 
 require (
-	github.com/opencontainers/runtime-spec v1.2.1 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 )
