@@ -1,0 +1,6 @@
+---
+- name: Deploy Agent Auditor Application
+  hosts: webservers
+  become: true
+  roles:
+    - agent_auditor

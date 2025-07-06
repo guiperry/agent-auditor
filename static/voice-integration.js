@@ -1,11 +1,11 @@
-// Voice Integration for Aegon Agent Auditor
+// Voice Integration for Aegong Agent Auditor
 
-// Add this method to the AegonInterface class
-AegonInterface.prototype.checkVoiceReport = async function(reportHash) {
+// Add this method to the AegongInterface class
+AegongInterface.prototype.checkVoiceReport = async function(reportHash) {
     const voiceControls = document.getElementById('voiceControls');
     const voiceLoading = document.getElementById('voiceLoading');
-    const audioElement = document.getElementById('aegonVoice');
-    const audioSource = document.getElementById('aegonVoiceSource');
+    const audioElement = document.getElementById('aegongVoice');
+    const audioSource = document.getElementById('aegongVoiceSource');
     const playVoiceBtn = document.getElementById('playVoiceBtn');
 
     // Show loading indicator
@@ -51,8 +51,8 @@ AegonInterface.prototype.checkVoiceReport = async function(reportHash) {
 };
 
 // Modify the showResults method to check for voice reports
-const originalShowResults = AegonInterface.prototype.showResults;
-AegonInterface.prototype.showResults = function(report) {
+const originalShowResults = AegongInterface.prototype.showResults;
+AegongInterface.prototype.showResults = function(report) {
     // Call the original method
     originalShowResults.call(this, report);
     

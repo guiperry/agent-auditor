@@ -39,7 +39,7 @@ body {
     gap: 1rem;
 }
 
-.aegon-eye {
+.aegong-eye {
     font-size: 3rem;
     animation: blink 3s infinite;
 }
@@ -282,7 +282,7 @@ body {
     50% { opacity: 0.7; }
 }
 
-.aegon-message {
+.aegong-message {
     display: flex;
     gap: 1rem;
     background: rgba(0, 212, 255, 0.1);

@@ -1,23 +1,25 @@
 package main
 
 import (
+	keys "Agent_Auditor/key_manager"
 	"encoding/json"
 	"fmt"
-	
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
-	
 )
 
 // VoiceInferenceConfig holds configuration for the voice inference system
 type VoiceInferenceConfig struct {
-	Enabled   bool   `json:"enabled"`
-	APIKey    string `json:"api_key"`
-	APISecret string `json:"api_secret"`
-	WSURL     string `json:"ws_url"`
-	OutputDir string `json:"output_dir"`
+	Enabled      bool   `json:"enabled"`
+	Provider     string `json:"provider"`
+	KeyFile      string `json:"key_file"`
+	KeyPassEnv   string `json:"key_pass_env"`
+	OutputDir    string `json:"output_dir"`
+	DefaultVoice string `json:"default_voice"`
+	WSURL        string `json:"ws_url"` // WebSocket URL for LiveKit
 }
 
 // VoiceInferenceManager manages voice report generation
@@ -25,14 +27,20 @@ type VoiceInferenceManager struct {
 	config     VoiceInferenceConfig
 	reportLock sync.Mutex
 	audioCache map[string]string // Maps report hash to audio file path
+	keyManager *keys.KeyManager  // Secure key manager
 }
 
 // NewVoiceInferenceManager creates a new voice inference manager
 func NewVoiceInferenceManager(configPath string) (*VoiceInferenceManager, error) {
 	// Default configuration
 	config := VoiceInferenceConfig{
-		Enabled:   false,
-		OutputDir: "voice_reports",
+		Enabled:      false,
+		Provider:     "openai",
+		KeyFile:      "default.key",
+		KeyPassEnv:   "AEGONG_KEY_PASS",
+		OutputDir:    "voice_reports",
+		DefaultVoice: "alloy",
+		WSURL:        "wss://your-livekit-instance.example.com",
 	}
 
 	// Try to load configuration from file
@@ -51,10 +59,34 @@ func NewVoiceInferenceManager(configPath string) (*VoiceInferenceManager, error)
 		}
 	}
 
-	return &VoiceInferenceManager{
+	// Create voice inference manager
+	vim := &VoiceInferenceManager{
 		config:     config,
 		audioCache: make(map[string]string),
-	}, nil
+	}
+
+	// Initialize key manager if enabled
+	if config.Enabled && config.KeyFile != "" {
+		vim.keyManager = keys.NewKeyManager(config.KeyFile)
+
+		// Try to initialize with passphrase from environment variable
+		if passphrase := os.Getenv(config.KeyPassEnv); passphrase != "" {
+			if err := vim.keyManager.Initialize(passphrase); err != nil {
+				log.Printf("Warning: Failed to initialize key manager: %v", err)
+			} else {
+				// Load keys
+				if err := vim.keyManager.LoadKeys(); err != nil {
+					log.Printf("Warning: Failed to load API keys: %v", err)
+				} else {
+					log.Printf("Successfully loaded API keys from %s", config.KeyFile)
+				}
+			}
+		} else {
+			log.Printf("Warning: Environment variable %s not set, API keys will not be available", config.KeyPassEnv)
+		}
+	}
+
+	return vim, nil
 }
 
 // GenerateVoiceReport generates a voice report for the given audit report
@@ -91,16 +123,104 @@ func (v *VoiceInferenceManager) GenerateVoiceReport(reportPath string) (string, 
 
 // runVoiceInference runs the Python voice inference script
 func (v *VoiceInferenceManager) runVoiceInference(reportPath string) (string, error) {
-	// Prepare the command
-	cmd := exec.Command(
-		"python3",
+	// Check if key manager is initialized
+	if v.keyManager == nil {
+		return "", fmt.Errorf("key manager not initialized, cannot access API keys")
+	}
+
+	// Base command with common arguments
+	args := []string{
 		"voice_inference.py",
 		"--report", reportPath,
 		"--output", v.config.OutputDir,
-		"--api-key", v.config.APIKey,
-		"--api-secret", v.config.APISecret,
-		"--ws-url", v.config.WSURL,
-	)
+		"--provider", v.config.Provider,
+	}
+
+	// Add WebSocket URL if configured
+	if v.config.WSURL != "" {
+		args = append(args, "--ws-url", v.config.WSURL)
+	}
+
+	// Add voice if specified
+	if v.config.DefaultVoice != "" {
+		args = append(args, "--voice", v.config.DefaultVoice)
+	}
+
+	// Add provider-specific API keys
+	switch v.config.Provider {
+	case "openai":
+		// Get OpenAI API key
+		apiKey, err := v.keyManager.GetKey("openai")
+		if err != nil {
+			return "", fmt.Errorf("failed to get OpenAI API key: %v", err)
+		}
+		args = append(args, "--openai-api-key", apiKey)
+
+	case "cerebras":
+		// Get Cerebras API key
+		cerebrasKey, err := v.keyManager.GetKey("cerebras")
+		if err != nil {
+			return "", fmt.Errorf("failed to get Cerebras API key: %v", err)
+		}
+		args = append(args, "--cerebras-api-key", cerebrasKey)
+
+		// Get Google credentials path (for Cerebras hybrid approach)
+		googleCreds, err := v.keyManager.GetKey("google_credentials_path")
+		if err != nil {
+			return "", fmt.Errorf("failed to get Google credentials path: %v", err)
+		}
+		args = append(args, "--google-credentials", googleCreds)
+
+	case "google":
+		// Get Google credentials path
+		googleCreds, err := v.keyManager.GetKey("google_credentials_path")
+		if err != nil {
+			return "", fmt.Errorf("failed to get Google credentials path: %v", err)
+		}
+		args = append(args, "--google-credentials", googleCreds)
+
+	case "azure":
+		// Get Azure API key
+		azureKey, err := v.keyManager.GetKey("azure")
+		if err != nil {
+			return "", fmt.Errorf("failed to get Azure API key: %v", err)
+		}
+		args = append(args, "--azure-api-key", azureKey)
+
+		// Get Azure region if available
+		if azureRegion, err := v.keyManager.GetKey("azure_region"); err == nil {
+			args = append(args, "--azure-region", azureRegion)
+		}
+
+	case "cartesia":
+		// Get Cartesia API key
+		cartesiaKey, err := v.keyManager.GetKey("cartesia")
+		if err != nil {
+			return "", fmt.Errorf("failed to get Cartesia API key: %v", err)
+		}
+		args = append(args, "--cartesia-api-key", cartesiaKey)
+
+	case "livekit":
+		// Get LiveKit API key
+		livekitKey, err := v.keyManager.GetKey("livekit_api_key")
+		if err != nil {
+			return "", fmt.Errorf("failed to get LiveKit API key: %v", err)
+		}
+		args = append(args, "--api-key", livekitKey)
+
+		// Get LiveKit API secret
+		livekitSecret, err := v.keyManager.GetKey("livekit_api_secret")
+		if err != nil {
+			return "", fmt.Errorf("failed to get LiveKit API secret: %v", err)
+		}
+		args = append(args, "--api-secret", livekitSecret)
+
+	default:
+		return "", fmt.Errorf("unsupported TTS provider: %s", v.config.Provider)
+	}
+
+	// Prepare the command
+	cmd := exec.Command("python3", args...)
 
 	// Run the command
 	output, err := cmd.CombinedOutput()
@@ -109,7 +229,6 @@ func (v *VoiceInferenceManager) runVoiceInference(reportPath string) (string, er
 	}
 
 	// Parse the output to get the audio file path
-	// This is a simplified approach - in a real implementation, you might want to parse JSON output
 	outputStr := string(output)
 	var audioPath string
 	_, err = fmt.Sscanf(outputStr, "Voice report generated: %s", &audioPath)
@@ -129,7 +248,7 @@ func (v *VoiceInferenceManager) IsEnabled() bool {
 func (v *VoiceInferenceManager) GetAudioPathForReport(reportHash string) (string, bool) {
 	v.reportLock.Lock()
 	defer v.reportLock.Unlock()
-	
+
 	path, exists := v.audioCache[reportHash]
 	return path, exists
 }

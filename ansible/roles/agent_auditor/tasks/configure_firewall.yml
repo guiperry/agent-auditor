@@ -1,0 +1,117 @@
+---
+# Configure firewall rules for Agent Auditor application
+# Supports both UFW (Ubuntu) and AWS Security Groups
+
+- name: Install UFW firewall (Ubuntu/Debian)
+  package:
+    name: ufw
+    state: present
+  when: 
+    - firewall_enabled
+    - ansible_os_family == "Debian"
+
+- name: Enable UFW firewall
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  when: 
+    - firewall_enabled
+    - ansible_os_family == "Debian"
+
+- name: Allow SSH access
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+  when: 
+    - firewall_enabled
+    - ansible_os_family == "Debian"
+
+- name: Allow Agent Auditor application port
+  ufw:
+    rule: allow
+    port: "{{ app_port }}"
+    proto: tcp
+    comment: "Agent Auditor Web Interface"
+  when: 
+    - firewall_enabled
+    - ansible_os_family == "Debian"
+
+- name: Display AWS Security Group configuration
+  debug:
+    msg: |
+      AWS Security Group Configuration Required:
+      ========================================
+      
+      For AWS EC2 deployment, ensure your Security Group allows:
+      
+      Inbound Rules:
+      - Type: SSH
+        Protocol: TCP
+        Port: 22
+        Source: Your IP or 0.0.0.0/0 (less secure)
+        
+      - Type: Custom TCP
+        Protocol: TCP
+        Port: {{ app_port }}
+        Source: 0.0.0.0/0 (for public access) or specific IP ranges
+        Description: Agent Auditor Web Interface
+      
+      Outbound Rules:
+      - Type: All Traffic
+        Protocol: All
+        Port: All
+        Destination: 0.0.0.0/0
+        
+      AWS CLI Command to create Security Group:
+      aws ec2 create-security-group --group-name aegong-sg --description "Agent Auditor Security Group"
+      aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 22 --cidr 0.0.0.0/0
+      aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port {{ app_port }} --cidr 0.0.0.0/0
+  when: firewall_enabled
+
+- name: Check if running on AWS EC2
+  uri:
+    url: http://169.254.169.254/latest/meta-data/instance-id
+    timeout: 2
+  register: aws_instance_check
+  ignore_errors: true
+  when: firewall_enabled
+
+- name: Display AWS instance information
+  debug:
+    msg: |
+      AWS EC2 Instance Detected!
+      =========================
+      
+      Instance ID: {{ aws_instance_check.content | default('Unable to retrieve') }}
+      
+      Make sure your EC2 instance has the correct Security Group attached.
+      You can check this in the AWS Console under EC2 > Instances > Security Groups
+      
+      To access your Agent Auditor application:
+      http://{{ ansible_default_ipv4.address }}:{{ app_port }}
+      
+      Or if you have an Elastic IP or domain:
+      http://YOUR_DOMAIN_OR_EIP:{{ app_port }}
+  when: 
+    - firewall_enabled
+    - aws_instance_check is succeeded
+
+- name: Display local firewall status
+  debug:
+    msg: |
+      Local Firewall Configuration Complete
+      ====================================
+      
+      UFW Status: Enabled
+      Allowed Ports:
+      - SSH (22/tcp)
+      - Agent Auditor ({{ app_port }}/tcp)
+      
+      Access your application at:
+      http://{{ ansible_default_ipv4.address }}:{{ app_port }}
+  when: 
+    - firewall_enabled
+    - ansible_os_family == "Debian"
+    - aws_instance_check is failed

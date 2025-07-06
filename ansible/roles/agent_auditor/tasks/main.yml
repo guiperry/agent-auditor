@@ -1,0 +1,13 @@
+---
+- name: Include Go setup tasks
+  include_tasks: setup_go.yml
+
+- name: Include Python setup tasks
+  include_tasks: setup_python.yml
+
+- name: Include application deployment tasks
+  include_tasks: deploy_app.yml
+
+- name: Include firewall configuration tasks
+  include_tasks: configure_firewall.yml
+

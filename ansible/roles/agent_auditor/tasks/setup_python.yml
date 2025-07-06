@@ -1,0 +1,16 @@
+---
+- name: Install Python and Pip
+  apt:
+    name: "{{ python_packages }}"
+    state: present
+    update_cache: yes
+
+- name: Ensure voice reports directory exists
+  file:
+    path: "{{ voice_output_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+  when: voice_enabled
+

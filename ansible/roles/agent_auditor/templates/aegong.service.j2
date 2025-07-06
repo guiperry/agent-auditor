@@ -1,0 +1,20 @@
+[Unit]
+Description=Aegong Agent Auditor Service
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ app_dir }}
+ExecStart={{ app_dir }}/aegong
+Restart=on-failure
+RestartSec=10
+Environment="PORT={{ app_port }}"
+{% if voice_enabled %}
+Environment="{{ voice_key_pass_env_var }}={{ vault_aegong_key_pass }}"
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target
+

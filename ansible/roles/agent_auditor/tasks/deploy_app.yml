@@ -1,0 +1,87 @@
+---
+- name: Create application group
+  group:
+    name: "{{ app_group }}"
+    state: present
+
+- name: Create application user
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    shell: /bin/bash
+    home: "{{ app_dir }}"
+    create_home: yes
+    state: present
+
+- name: Clone the Agent Auditor repository
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_dir }}"
+    version: "{{ app_version }}"
+    force: true
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Install Python dependencies
+  pip:
+    requirements: "{{ app_dir }}/requirements.txt"
+    executable: pip3
+  become: true
+  become_user: "{{ app_user }}"
+- name: Build the Agent Auditor binary
+  command:
+    cmd: /usr/local/go/bin/go build -o aegong .
+    chdir: "{{ app_dir }}"
+  environment:
+    PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Create required directories
+  file:
+    path: "{{ app_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+  loop:
+    - uploads
+    - reports
+    - voice_reports
+
+- name: Copy encrypted key file to server
+  copy:
+    src: "{{ voice_key_file_src }}"
+    dest: "{{ voice_key_file_dest }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0600' # Restrictive permissions
+  when: voice_enabled
+
+- name: Configure voice_config.json from template
+  template:
+    src: voice_config.json.j2
+    dest: "{{ app_dir }}/voice_config.json"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
+  when: voice_enabled
+
+- name: Create systemd service file
+  template:
+    src: aegong.service.j2
+    dest: /etc/systemd/system/aegong.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart aegong service
+
+- name: Enable and start the aegong service
+  systemd:
+    name: aegong
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Add handler to restart service
+  meta: flush_handlers

@@ -18,7 +18,7 @@ func (s *SegmentationValidator) Validate(binary []byte, container *CustomContain
 	results["network_isolated"] = networkIsolated
 
 	// Check filesystem isolation
-	fsIsolated := strings.HasPrefix(container.FileSystem, "/tmp/aasab-")
+	fsIsolated := strings.HasPrefix(container.FileSystem, "/tmp/aegong-")
 	results["filesystem_isolated"] = fsIsolated
 
 	// Check resource limits

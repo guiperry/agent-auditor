@@ -1,0 +1,27 @@
+---
+- name: Check if Go is already installed
+  stat:
+    path: "/usr/local/go/bin/go"
+  register: go_binary
+
+- name: Install Go
+  when: not go_binary.stat.exists
+  block:
+    - name: Download Go binary
+      get_url:
+        url: "https://go.dev/dl/go{{ go_version }}.linux-{{ go_arch }}.tar.gz"
+        dest: "/tmp/go{{ go_version }}.linux-{{ go_arch }}.tar.gz"
+        mode: '0644'
+
+    - name: Extract Go binary
+      unarchive:
+        src: "/tmp/go{{ go_version }}.linux-{{ go_arch }}.tar.gz"
+        dest: "/usr/local"
+        remote_src: yes
+
+    - name: Add Go to system-wide PATH
+      copy:
+        content: 'export PATH=$PATH:/usr/local/go/bin'
+        dest: /etc/profile.d/go.sh
+        mode: '0755'
+

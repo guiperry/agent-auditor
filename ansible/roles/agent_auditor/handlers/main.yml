@@ -1,0 +1,6 @@
+---
+- name: Restart aegong service
+  systemd:
+    name: aegong
+    state: restarted
+

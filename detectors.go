@@ -204,7 +204,7 @@ func (d *MemoryPoisoningDetector) DetectThreat(binary []byte, container *CustomC
 			Evidence:   evidence,
 			Timestamp:  time.Now(),
 			Details: map[string]interface{}{
-				"memory_manipulation_count":  len(evidence),
+				"memory_manipulation_count": len(evidence),
 				"persistent_storage_access": len(evidence) > 3,
 			},
 		})
@@ -273,7 +273,7 @@ func (d *UnauthorizedActionDetector) DetectThreat(binary []byte, container *Cust
 			Evidence:   evidence,
 			Timestamp:  time.Now(),
 			Details: map[string]interface{}{
-				"unauthorized_patterns":  len(evidence),
+				"unauthorized_patterns": len(evidence),
 				"system_calls_detected": len(evidence) > 2,
 			},
 		})
@@ -427,7 +427,7 @@ func (d *TrustManipulationDetector) DetectThreat(binary []byte, container *Custo
 			Evidence:   evidence,
 			Timestamp:  time.Now(),
 			Details: map[string]interface{}{
-				"manipulation_tactics":   len(evidence),
+				"manipulation_tactics": len(evidence),
 				"high_risk_indicators": len(evidence) > 3,
 			},
 		})

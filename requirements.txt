@@ -1,1 +1,8 @@
-livekit-agents
+# Core LiveKit Agents with OpenAI support
+livekit-agents[openai]~=1.0
+numpy
+
+# Optional TTS providers (install as needed)
+# For Google Cloud TTS: pip install 'livekit-agents[google]'
+# For Azure TTS: pip install 'livekit-agents[azure]'
+# For Cartesia TTS: pip install 'livekit-agents[cartesia]'

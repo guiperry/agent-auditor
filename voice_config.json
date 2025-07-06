@@ -1,7 +1,9 @@
 {
     "enabled": false,
-    "api_key": "YOUR_LIVEKIT_API_KEY",
-    "api_secret": "YOUR_LIVEKIT_API_SECRET",
-    "ws_url": "wss://your-livekit-instance.example.com",
-    "output_dir": "voice_reports"
+    "provider": "openai",
+    "key_file": "default.key",
+    "key_pass_env": "AEGONG_KEY_PASS",
+    "output_dir": "voice_reports",
+    "default_voice": "alloy",
+    "ws_url": "wss://your-livekit-instance.example.com"
 }

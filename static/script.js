@@ -1,4 +1,4 @@
-class AegonInterface {
+class AegongInterface {
     constructor() {
         this.ws = null;
         this.currentReport = null;
@@ -56,14 +56,14 @@ class AegonInterface {
     }
 
     handleWebSocketMessage(message) {
-        if (message.type === 'aegon_message') {
-            this.showAegonMessage(message.message);
+        if (message.type === 'aegong_message') {
+            this.showAegongMessage(message.message);
         }
     }
 
-    showAegonMessage(message) {
+    showAegongMessage(message) {
         // Could be used for real-time updates during analysis
-        console.log('Aegon says:', message);
+        console.log('Aegong says:', message);
     }
 
     handleDragOver(e) {
@@ -172,12 +172,12 @@ class AegonInterface {
         const analysisStatus = document.getElementById('analysisStatus');
         
         const steps = [
-            { progress: 10, text: 'Aegon is awakening his sensors...' },
+            { progress: 10, text: 'Aegong is awakening his sensors...' },
             { progress: 25, text: 'Scanning binary structure...' },
             { progress: 40, text: 'Analyzing threat vectors...' },
             { progress: 60, text: 'Running SHIELD validations...' },
             { progress: 80, text: 'Calculating risk assessment...' },
-            { progress: 95, text: 'Preparing Aegon\'s verdict...' },
+            { progress: 95, text: 'Preparing Aegong\'s verdict...' },
             { progress: 100, text: 'Analysis complete!' }
         ];
 
@@ -212,8 +212,8 @@ class AegonInterface {
         riskLevel.textContent = report.risk_level;
         riskBadge.className = `risk-badge risk-${report.risk_level.toLowerCase()}`;
 
-        // Show Aegon's message
-        document.getElementById('aegonText').textContent = report.aegon_message;
+        // Show Aegong's message
+        document.getElementById('aegongText').textContent = report.aegong_message;
 
         // Populate threats
         this.populateThreats(report.threats);
@@ -234,7 +234,7 @@ class AegonInterface {
         threatsList.innerHTML = '';
 
         if (threats.length === 0) {
-            threatsList.innerHTML = '<p class="no-threats">🎉 No threats detected! Aegon is pleased.</p>';
+            threatsList.innerHTML = '<p class="no-threats">🎉 No threats detected! Aegong is pleased.</p>';
             return;
         }
 
@@ -402,7 +402,7 @@ class AegonInterface {
         
         const link = document.createElement('a');
         link.href = URL.createObjectURL(dataBlob);
-        link.download = `aegon_report_${this.currentReport.agent_hash.substring(0, 8)}.json`;
+        link.download = `aegong_report_${this.currentReport.agent_hash.substring(0, 8)}.json`;
         link.click();
     }
 
@@ -449,5 +449,5 @@ class AegonInterface {
 
 // Initialize the interface when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new AegonInterface();
+    new AegongInterface();
 });

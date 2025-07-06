@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -28,10 +27,11 @@ type CustomContainer struct {
 	Syscalls    []syscall.SysProcAttr
 	IsIsolated  bool
 	LogFile     *os.File
+	CgroupPath  string // Store the cgroup path for cleanup
 }
 
-// Main AASAB Engine
-type AASABEngine struct {
+// Main AEGONG Engine
+type AEGONGEngine struct {
 	containers      map[string]*CustomContainer
 	threatDetectors map[ThreatVector]ThreatDetector
 	shieldModules   map[string]ShieldModule
@@ -50,9 +50,9 @@ type ShieldModule interface {
 	GetModuleName() string
 }
 
-// Initialize the AASAB Engine
-func NewAASABEngine() *AASABEngine {
-	engine := &AASABEngine{
+// Initialize the AEGONG Engine
+func NewAEGONGEngine() *AEGONGEngine {
+	engine := &AEGONGEngine{
 		containers:      make(map[string]*CustomContainer),
 		threatDetectors: make(map[ThreatVector]ThreatDetector),
 		shieldModules:   make(map[string]ShieldModule),
@@ -82,7 +82,7 @@ func NewAASABEngine() *AASABEngine {
 }
 
 // Main audit function
-func (e *AASABEngine) AuditAgent(binaryPath string) (*AuditReport, error) {
+func (e *AEGONGEngine) AuditAgent(binaryPath string) (*AuditReport, error) {
 	// Read agent binary
 	binary, err := os.ReadFile(binaryPath)
 	if err != nil {
@@ -141,8 +141,8 @@ func (e *AASABEngine) AuditAgent(binaryPath string) (*AuditReport, error) {
 }
 
 // Custom container implementation without Docker/K8s
-func (e *AASABEngine) createIsolatedContainer(agentHash string) (*CustomContainer, error) {
-	containerID := fmt.Sprintf("aasab-%s-%d", agentHash[:8], time.Now().Unix())
+func (e *AEGONGEngine) createIsolatedContainer(agentHash string) (*CustomContainer, error) {
+	containerID := fmt.Sprintf("aegong-%s-%d", agentHash[:8], time.Now().UnixNano())
 
 	// Create temporary filesystem
 	containerPath := filepath.Join("/tmp", containerID)
@@ -174,7 +174,7 @@ func (e *AASABEngine) createIsolatedContainer(agentHash string) (*CustomContaine
 	return container, nil
 }
 
-func (e *AASABEngine) destroyContainer(containerID string) error {
+func (e *AEGONGEngine) destroyContainer(containerID string) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -183,16 +183,23 @@ func (e *AASABEngine) destroyContainer(containerID string) error {
 		return fmt.Errorf("container not found: %s", containerID)
 	}
 
-	// Kill process if running
+	// Kill process if running - ProcessID is already protected by the mutex
 	if container.ProcessID > 0 {
-		if err := syscall.Kill(container.ProcessID, syscall.SIGTERM); err != nil {
-			syscall.Kill(container.ProcessID, syscall.SIGKILL)
+		// We're already holding the mutex, so this is safe
+		pid := container.ProcessID
+		if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+			syscall.Kill(pid, syscall.SIGKILL)
 		}
 	}
 
 	// Close log file
 	if container.LogFile != nil {
 		container.LogFile.Close()
+	}
+
+	// Clean up cgroup if it exists
+	if container.CgroupPath != "" {
+		e.cleanupCgroup(container.CgroupPath)
 	}
 
 	// Remove filesystem
@@ -202,7 +209,7 @@ func (e *AASABEngine) destroyContainer(containerID string) error {
 	return nil
 }
 
-func (e *AASABEngine) runStaticAnalysis(binary []byte, container *CustomContainer) []ThreatDetection {
+func (e *AEGONGEngine) runStaticAnalysis(binary []byte, container *CustomContainer) []ThreatDetection {
 	var allThreats []ThreatDetection
 
 	for _, detector := range e.threatDetectors {
@@ -213,7 +220,7 @@ func (e *AASABEngine) runStaticAnalysis(binary []byte, container *CustomContaine
 	return allThreats
 }
 
-func (e *AASABEngine) runDynamicAnalysis(binary []byte, container *CustomContainer) []ThreatDetection {
+func (e *AEGONGEngine) runDynamicAnalysis(binary []byte, container *CustomContainer) []ThreatDetection {
 	// For dynamic analysis, we would need to actually execute the binary
 	// in the isolated container and monitor its behavior
 	var threats []ThreatDetection
@@ -230,32 +237,43 @@ func (e *AASABEngine) runDynamicAnalysis(binary []byte, container *CustomContain
 	return threats
 }
 
-func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContainer) string {
+func (e *AEGONGEngine) simulateExecution(binary []byte, container *CustomContainer) string {
 	// Real implementation for executing binaries in an isolated environment
 	// with comprehensive monitoring via ptrace and other kernel mechanisms
 
 	// 1. Write binary to container filesystem
 	binaryPath := filepath.Join(container.FileSystem, "agent_binary")
-	if err := ioutil.WriteFile(binaryPath, binary, 0755); err != nil {
+	if err := os.WriteFile(binaryPath, binary, 0755); err != nil {
 		log.Printf("Failed to write binary to container: %v", err)
 		return fmt.Sprintf("ERROR: Failed to prepare binary for execution: %v", err)
 	}
 
 	// 2. Set up monitoring and logging
 	var executionLog bytes.Buffer
-	executionLog.WriteString(fmt.Sprintf("[EXECUTION] Container: %s\n", container.ID))
-	executionLog.WriteString(fmt.Sprintf("Binary Size: %d bytes\n", len(binary)))
-	executionLog.WriteString(fmt.Sprintf("Memory Limit: %d MB\n", container.MemoryLimit/(1024*1024)))
-	executionLog.WriteString(fmt.Sprintf("CPU Limit: %.1f%%\n", container.CPULimit*100))
-	executionLog.WriteString(fmt.Sprintf("Network: %s\n", container.NetworkNS))
-	executionLog.WriteString(fmt.Sprintf("Filesystem: %s\n", container.FileSystem))
+	// Create a mutex to protect access to executionLog
+	var logMutex sync.Mutex
 
-	// 3. Create cgroup for resource limiting (if supported)
+	// Safe logging function to prevent concurrent writes to executionLog
+	writeLog := func(format string, args ...interface{}) {
+		logMutex.Lock()
+		defer logMutex.Unlock()
+		executionLog.WriteString(fmt.Sprintf(format, args...))
+	}
+
+	writeLog("[EXECUTION] Container: %s\n", container.ID)
+	writeLog("Binary Size: %d bytes\n", len(binary))
+	writeLog("Memory Limit: %d MB\n", container.MemoryLimit/(1024*1024))
+	writeLog("CPU Limit: %.1f%%\n", container.CPULimit*100)
+	writeLog("Network: %s\n", container.NetworkNS)
+	writeLog("Filesystem: %s\n", container.FileSystem)
+
+	// 3. Create cgroup for resource limiting (if supported) - but don't add process yet
 	cgroupPath := ""
 	if runtime.GOOS == "linux" {
-		cgroupPath = e.setupCgroup(container)
+		cgroupPath = e.createCgroupStructure(container)
 		if cgroupPath != "" {
-			executionLog.WriteString(fmt.Sprintf("Cgroup: %s\n", cgroupPath))
+			writeLog("Cgroup: %s\n", cgroupPath)
+			container.CgroupPath = cgroupPath
 		}
 	}
 
@@ -273,7 +291,7 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 		// Add network namespace isolation if configured
 		if container.NetworkNS == "none" {
 			cmd.SysProcAttr.Cloneflags |= syscall.CLONE_NEWNET
-			executionLog.WriteString("Network: Isolated (namespace)\n")
+			writeLog("Network: Isolated (namespace)\n")
 		}
 
 		// Set resource limits
@@ -292,18 +310,38 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 	// 5. Start the process
 	startTime := time.Now()
 	if err := cmd.Start(); err != nil {
-		executionLog.WriteString(fmt.Sprintf("ERROR: Failed to start process: %v\n", err))
+		writeLog("ERROR: Failed to start process: %v\n", err)
 		return executionLog.String()
 	}
 
-	// Record the process ID
-	container.ProcessID = cmd.Process.Pid
-	executionLog.WriteString(fmt.Sprintf("Process Started: PID %d\n", container.ProcessID))
+	// Record the process ID and create a channel to safely pass it to the ptrace goroutine
+	processPID := cmd.Process.Pid
+
+	// Update container's ProcessID with proper locking
+	e.mutex.Lock()
+	container.ProcessID = processPID
+	e.mutex.Unlock()
+
+	writeLog("Process Started: PID %d\n", processPID)
+
+	// Now add the process to the cgroup (this fixes the race condition)
+	if cgroupPath != "" {
+		if err := e.addProcessToCgroup(container, processPID); err != nil {
+			writeLog("WARNING: Failed to add process to cgroup: %v\n", err)
+		} else {
+			writeLog("Process added to cgroup successfully\n")
+		}
+	}
 
 	// 6. Set up ptrace monitoring in a separate goroutine
 	syscallLog := make(map[string]int)
 	fileOps := make(map[string]int)
 	networkActivity := false
+
+	// Create mutexes to protect access to shared maps
+	var syscallMutex sync.Mutex
+	var fileOpsMutex sync.Mutex
+	var networkMutex sync.Mutex
 
 	// Create a channel to signal when tracing is complete
 	traceDone := make(chan bool)
@@ -311,9 +349,9 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 	go func() {
 		// Wait for the process to stop (it should stop immediately due to ptrace)
 		var status syscall.WaitStatus
-		_, err := syscall.Wait4(container.ProcessID, &status, 0, nil)
+		_, err := syscall.Wait4(processPID, &status, 0, nil)
 		if err != nil {
-			executionLog.WriteString(fmt.Sprintf("ERROR: Failed to wait for process: %v\n", err))
+			writeLog("ERROR: Failed to wait for process: %v\n", err)
 			traceDone <- true
 			return
 		}
@@ -321,13 +359,13 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 		// Begin tracing
 		for {
 			// Allow the process to continue with tracing
-			err = syscall.PtraceSyscall(container.ProcessID, 0)
+			err = syscall.PtraceSyscall(processPID, 0)
 			if err != nil {
 				break
 			}
 
 			// Wait for the next syscall
-			_, err = syscall.Wait4(container.ProcessID, &status, 0, nil)
+			_, err = syscall.Wait4(processPID, &status, 0, nil)
 			if err != nil {
 				break
 			}
@@ -339,40 +377,50 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 
 			// Get the syscall number
 			regs := &syscall.PtraceRegs{}
-			if err = syscall.PtraceGetRegs(container.ProcessID, regs); err != nil {
+			if err = syscall.PtraceGetRegs(processPID, regs); err != nil {
 				continue
 			}
 
 			// On x86_64, the syscall number is in the ORIG_RAX register
 			syscallNum := regs.Orig_rax
 
-			// Record the syscall
+			// Record the syscall with proper locking
 			syscallName := getSyscallName(syscallNum)
+			syscallMutex.Lock()
 			syscallLog[syscallName]++
+			syscallMutex.Unlock()
 
-			// Check for specific syscalls of interest
+			// Check for specific syscalls of interest with proper locking
 			switch syscallNum {
 			case syscall.SYS_OPEN, syscall.SYS_OPENAT:
 				// For open syscalls, get the filename
 				// This is simplified - in a real implementation you would read the memory
 				// at the address in the registers to get the filename
+				fileOpsMutex.Lock()
 				fileOps["open"]++
+				fileOpsMutex.Unlock()
 			case syscall.SYS_READ:
+				fileOpsMutex.Lock()
 				fileOps["read"]++
+				fileOpsMutex.Unlock()
 			case syscall.SYS_WRITE:
+				fileOpsMutex.Lock()
 				fileOps["write"]++
+				fileOpsMutex.Unlock()
 			case syscall.SYS_SOCKET, syscall.SYS_CONNECT:
+				networkMutex.Lock()
 				networkActivity = true
+				networkMutex.Unlock()
 			}
 
 			// Allow the process to execute the syscall and stop at the next one
-			err = syscall.PtraceSyscall(container.ProcessID, 0)
+			err = syscall.PtraceSyscall(processPID, 0)
 			if err != nil {
 				break
 			}
 
 			// Wait for syscall completion
-			_, err = syscall.Wait4(container.ProcessID, &status, 0, nil)
+			_, err = syscall.Wait4(processPID, &status, 0, nil)
 			if err != nil {
 				break
 			}
@@ -409,7 +457,7 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 	case <-timeout:
 		// Kill the process if it times out
 		cmd.Process.Kill()
-		executionLog.WriteString("ERROR: Process execution timed out\n")
+		writeLog("ERROR: Process execution timed out\n")
 		exitCode = -1
 	}
 
@@ -419,52 +467,56 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 	// 8. Collect and record execution data
 	executionTime := time.Since(startTime)
 
-	// Record syscalls
-	executionLog.WriteString("System Calls:\n")
+	// Record syscalls with proper locking
+	writeLog("System Calls:\n")
+	syscallMutex.Lock()
 	for syscall, count := range syscallLog {
-		executionLog.WriteString(fmt.Sprintf("  %s: %d times\n", syscall, count))
+		writeLog("  %s: %d times\n", syscall, count)
 	}
+	syscallMutex.Unlock()
 
-	// Record file operations
-	executionLog.WriteString("File Operations:\n")
+	// Record file operations with proper locking
+	writeLog("File Operations:\n")
+	fileOpsMutex.Lock()
 	for op, count := range fileOps {
-		executionLog.WriteString(fmt.Sprintf("  %s: %d times\n", op, count))
+		writeLog("  %s: %d times\n", op, count)
 	}
+	fileOpsMutex.Unlock()
 
-	// Record network activity
+	// Record network activity with proper locking
+	networkMutex.Lock()
 	if networkActivity {
-		executionLog.WriteString("Network Activity: Detected\n")
+		writeLog("Network Activity: Detected\n")
 	} else {
-		executionLog.WriteString("Network Activity: None detected\n")
+		writeLog("Network Activity: None detected\n")
 	}
+	networkMutex.Unlock()
 
 	// Record resource usage
-	if cgroupPath != "" {
-		memUsage := e.getCgroupMemoryUsage(cgroupPath)
-		cpuUsage := e.getCgroupCpuUsage(cgroupPath)
-		executionLog.WriteString(fmt.Sprintf("Resource Usage: Memory: %d KB, CPU: %.2f%%\n",
-			memUsage/1024, cpuUsage))
+	if container.CgroupPath != "" {
+		memUsage := e.getCgroupMemoryUsage(container.CgroupPath)
+		cpuUsage := e.getCgroupCpuUsage(container.CgroupPath)
+		writeLog("Resource Usage: Memory: %d KB, CPU: %.2f%%\n",
+			memUsage/1024, cpuUsage)
 	}
 
 	// Record stdout/stderr
 	if stdout.Len() > 0 {
-		executionLog.WriteString("Standard Output:\n")
-		executionLog.WriteString(stdout.String())
+		writeLog("Standard Output:\n")
+		writeLog("%s", stdout.String())
 	}
 
 	if stderr.Len() > 0 {
-		executionLog.WriteString("Standard Error:\n")
-		executionLog.WriteString(stderr.String())
+		writeLog("Standard Error:\n")
+		writeLog("%s", stderr.String())
 	}
 
 	// Record exit code
-	executionLog.WriteString(fmt.Sprintf("Process Completed: Exit code %d\n", exitCode))
-	executionLog.WriteString(fmt.Sprintf("Execution Time: %v\n", executionTime))
+	writeLog("Process Completed: Exit code %d\n", exitCode)
+	writeLog("Execution Time: %v\n", executionTime)
 
 	// 9. Clean up
-	if cgroupPath != "" {
-		e.cleanupCgroup(cgroupPath)
-	}
+	// Note: Cgroup cleanup is now handled in destroyContainer()
 
 	// Remove the binary
 	os.Remove(binaryPath)
@@ -472,7 +524,7 @@ func (e *AASABEngine) simulateExecution(binary []byte, container *CustomContaine
 	return executionLog.String()
 }
 
-func (e *AASABEngine) runShieldValidations(binary []byte, container *CustomContainer) map[string]interface{} {
+func (e *AEGONGEngine) runShieldValidations(binary []byte, container *CustomContainer) map[string]interface{} {
 	shieldResults := make(map[string]interface{})
 
 	for name, module := range e.shieldModules {
@@ -486,7 +538,7 @@ func (e *AASABEngine) runShieldValidations(binary []byte, container *CustomConta
 	return shieldResults
 }
 
-func (e *AASABEngine) calculateOverallRisk(threats []ThreatDetection) float64 {
+func (e *AEGONGEngine) calculateOverallRisk(threats []ThreatDetection) float64 {
 	if len(threats) == 0 {
 		return 0.0
 	}
@@ -522,7 +574,7 @@ func (e *AASABEngine) calculateOverallRisk(threats []ThreatDetection) float64 {
 	return overallRisk
 }
 
-func (e *AASABEngine) generateRecommendations(threats []ThreatDetection, shieldResults map[string]interface{}) []string {
+func (e *AEGONGEngine) generateRecommendations(threats []ThreatDetection, shieldResults map[string]interface{}) []string {
 	recommendations := []string{}
 
 	// Generate recommendations based on threats
@@ -895,14 +947,19 @@ func getSyscallName(syscallNum uint64) string {
 	return fmt.Sprintf("syscall_%d", syscallNum)
 }
 
-// Setup cgroup for resource limiting
-func (e *AASABEngine) setupCgroup(container *CustomContainer) string {
+// Create cgroup structure and set limits (but don't add process yet)
+func (e *AEGONGEngine) createCgroupStructure(container *CustomContainer) string {
+	// Skip cgroup creation during tests to avoid permission errors, as tests are not run as root.
+	if os.Getenv("GO_TEST") == "1" {
+		return ""
+	}
+
 	// This is a simplified implementation - in production you would use a more robust approach
 	// Check if cgroups v2 is available
 	cgroupsV2Path := "/sys/fs/cgroup"
 	if _, err := os.Stat(cgroupsV2Path); err == nil {
 		// Create a cgroup for this container
-		cgroupPath := filepath.Join(cgroupsV2Path, "aasab", container.ID)
+		cgroupPath := filepath.Join(cgroupsV2Path, "aegong", container.ID)
 		if err := os.MkdirAll(cgroupPath, 0755); err != nil {
 			log.Printf("Failed to create cgroup: %v", err)
 			return ""
@@ -910,23 +967,18 @@ func (e *AASABEngine) setupCgroup(container *CustomContainer) string {
 
 		// Set memory limit
 		memLimitPath := filepath.Join(cgroupPath, "memory.max")
-		if err := ioutil.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
+		if err := os.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
 			log.Printf("Failed to set memory limit: %v", err)
 		}
 
 		// Set CPU limit (simplified)
 		cpuLimitPath := filepath.Join(cgroupPath, "cpu.max")
 		cpuQuota := int(container.CPULimit * 100000)
-		if err := ioutil.WriteFile(cpuLimitPath, []byte(fmt.Sprintf("%d 100000", cpuQuota)), 0644); err != nil {
+		if err := os.WriteFile(cpuLimitPath, []byte(fmt.Sprintf("%d 100000", cpuQuota)), 0644); err != nil {
 			log.Printf("Failed to set CPU limit: %v", err)
 		}
 
-		// Add the process to the cgroup
-		procsPath := filepath.Join(cgroupPath, "cgroup.procs")
-		if err := ioutil.WriteFile(procsPath, []byte(fmt.Sprintf("%d", container.ProcessID)), 0644); err != nil {
-			log.Printf("Failed to add process to cgroup: %v", err)
-		}
-
+		// NOTE: We don't add the process here - that's done after the process starts
 		return cgroupPath
 	}
 
@@ -934,55 +986,80 @@ func (e *AASABEngine) setupCgroup(container *CustomContainer) string {
 	cgroupsV1Path := "/sys/fs/cgroup"
 	if _, err := os.Stat(cgroupsV1Path); err == nil {
 		// Create memory cgroup
-		memCgroupPath := filepath.Join(cgroupsV1Path, "memory", "aasab", container.ID)
+		memCgroupPath := filepath.Join(cgroupsV1Path, "memory", "aegong", container.ID)
 		if err := os.MkdirAll(memCgroupPath, 0755); err != nil {
 			log.Printf("Failed to create memory cgroup: %v", err)
 		} else {
 			// Set memory limit
 			memLimitPath := filepath.Join(memCgroupPath, "memory.limit_in_bytes")
-			if err := ioutil.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
+			if err := os.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
 				log.Printf("Failed to set memory limit: %v", err)
-			}
-
-			// Add the process to the cgroup
-			procsPath := filepath.Join(memCgroupPath, "cgroup.procs")
-			if err := ioutil.WriteFile(procsPath, []byte(fmt.Sprintf("%d", container.ProcessID)), 0644); err != nil {
-				log.Printf("Failed to add process to memory cgroup: %v", err)
 			}
 		}
 
 		// Create CPU cgroup
-		cpuCgroupPath := filepath.Join(cgroupsV1Path, "cpu", "aasab", container.ID)
+		cpuCgroupPath := filepath.Join(cgroupsV1Path, "cpu", "aegong", container.ID)
 		if err := os.MkdirAll(cpuCgroupPath, 0755); err != nil {
 			log.Printf("Failed to create CPU cgroup: %v", err)
 		} else {
 			// Set CPU limit
 			cpuQuota := int(container.CPULimit * 100000)
 			cpuQuotaPath := filepath.Join(cpuCgroupPath, "cpu.cfs_quota_us")
-			if err := ioutil.WriteFile(cpuQuotaPath, []byte(fmt.Sprintf("%d", cpuQuota)), 0644); err != nil {
+			if err := os.WriteFile(cpuQuotaPath, []byte(fmt.Sprintf("%d", cpuQuota)), 0644); err != nil {
 				log.Printf("Failed to set CPU quota: %v", err)
 			}
 
 			cpuPeriodPath := filepath.Join(cpuCgroupPath, "cpu.cfs_period_us")
-			if err := ioutil.WriteFile(cpuPeriodPath, []byte("100000"), 0644); err != nil {
+			if err := os.WriteFile(cpuPeriodPath, []byte("100000"), 0644); err != nil {
 				log.Printf("Failed to set CPU period: %v", err)
-			}
-
-			// Add the process to the cgroup
-			procsPath := filepath.Join(cpuCgroupPath, "cgroup.procs")
-			if err := ioutil.WriteFile(procsPath, []byte(fmt.Sprintf("%d", container.ProcessID)), 0644); err != nil {
-				log.Printf("Failed to add process to CPU cgroup: %v", err)
 			}
 		}
 
-		return filepath.Join(cgroupsV1Path, "aasab", container.ID)
+		// NOTE: We don't add the process here - that's done after the process starts
+		return filepath.Join(cgroupsV1Path, "aegong", container.ID)
 	}
 
 	return ""
 }
 
+// Add a process to an existing cgroup (fixes the race condition)
+func (e *AEGONGEngine) addProcessToCgroup(container *CustomContainer, pid int) error {
+	if container.CgroupPath == "" {
+		return fmt.Errorf("no cgroup path set for container %s", container.ID)
+	}
+
+	// Check if cgroups v2 is being used
+	cgroupsV2Path := "/sys/fs/cgroup"
+	if strings.HasPrefix(container.CgroupPath, cgroupsV2Path) && !strings.Contains(container.CgroupPath, "/memory/") && !strings.Contains(container.CgroupPath, "/cpu/") {
+		// cgroups v2
+		procsPath := filepath.Join(container.CgroupPath, "cgroup.procs")
+		if err := os.WriteFile(procsPath, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
+			return fmt.Errorf("failed to add process to cgroup v2: %v", err)
+		}
+	} else {
+		// cgroups v1 - need to add to both memory and CPU cgroups
+		cgroupsV1Path := "/sys/fs/cgroup"
+
+		// Add to memory cgroup
+		memCgroupPath := filepath.Join(cgroupsV1Path, "memory", "aegong", container.ID)
+		memProcsPath := filepath.Join(memCgroupPath, "cgroup.procs")
+		if err := os.WriteFile(memProcsPath, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
+			log.Printf("Failed to add process to memory cgroup: %v", err)
+		}
+
+		// Add to CPU cgroup
+		cpuCgroupPath := filepath.Join(cgroupsV1Path, "cpu", "aegong", container.ID)
+		cpuProcsPath := filepath.Join(cpuCgroupPath, "cgroup.procs")
+		if err := os.WriteFile(cpuProcsPath, []byte(fmt.Sprintf("%d", pid)), 0644); err != nil {
+			log.Printf("Failed to add process to CPU cgroup: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // Clean up cgroup
-func (e *AASABEngine) cleanupCgroup(cgroupPath string) {
+func (e *AEGONGEngine) cleanupCgroup(cgroupPath string) {
 	// Remove the cgroup
 	if err := os.RemoveAll(cgroupPath); err != nil {
 		log.Printf("Failed to remove cgroup: %v", err)
@@ -990,10 +1067,10 @@ func (e *AASABEngine) cleanupCgroup(cgroupPath string) {
 }
 
 // Get memory usage from cgroup
-func (e *AASABEngine) getCgroupMemoryUsage(cgroupPath string) int64 {
+func (e *AEGONGEngine) getCgroupMemoryUsage(cgroupPath string) int64 {
 	// Try cgroups v2 first
 	memUsagePath := filepath.Join(cgroupPath, "memory.current")
-	if data, err := ioutil.ReadFile(memUsagePath); err == nil {
+	if data, err := os.ReadFile(memUsagePath); err == nil {
 		if usage, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
 			return usage
 		}
@@ -1001,7 +1078,7 @@ func (e *AASABEngine) getCgroupMemoryUsage(cgroupPath string) int64 {
 
 	// Fallback to cgroups v1
 	memUsagePath = filepath.Join(cgroupPath, "memory.usage_in_bytes")
-	if data, err := ioutil.ReadFile(memUsagePath); err == nil {
+	if data, err := os.ReadFile(memUsagePath); err == nil {
 		if usage, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
 			return usage
 		}
@@ -1011,13 +1088,13 @@ func (e *AASABEngine) getCgroupMemoryUsage(cgroupPath string) int64 {
 }
 
 // Get CPU usage from cgroup
-func (e *AASABEngine) getCgroupCpuUsage(cgroupPath string) float64 {
+func (e *AEGONGEngine) getCgroupCpuUsage(cgroupPath string) float64 {
 	// This is a simplified implementation - in production you would calculate
 	// CPU usage based on cpu.stat or cpuacct.usage
 
 	// Try cgroups v2 first
 	cpuStatPath := filepath.Join(cgroupPath, "cpu.stat")
-	if data, err := ioutil.ReadFile(cpuStatPath); err == nil {
+	if data, err := os.ReadFile(cpuStatPath); err == nil {
 		lines := strings.Split(string(data), "\n")
 		for _, line := range lines {
 			if strings.HasPrefix(line, "usage_usec") {
@@ -1035,7 +1112,7 @@ func (e *AASABEngine) getCgroupCpuUsage(cgroupPath string) float64 {
 
 	// Fallback to cgroups v1
 	cpuUsagePath := filepath.Join(cgroupPath, "cpuacct.usage")
-	if data, err := ioutil.ReadFile(cpuUsagePath); err == nil {
+	if data, err := os.ReadFile(cpuUsagePath); err == nil {
 		if usage, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
 			// Convert nanoseconds to percentage (simplified)
 			elapsedTime := float64(time.Now().UnixNano() - time.Now().Add(-1*time.Second).UnixNano())
