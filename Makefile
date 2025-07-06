@@ -11,7 +11,7 @@ ANSIBLE_PLAYBOOK=$(ANSIBLE_DIR)/playbook.yml
 .SILENT:
 
 # Phony targets don't represent files.
-.PHONY: help all build run test keys deploy clean sync-voice-config version test-deploy
+.PHONY: help all build run test keys deploy clean sync-voice-config version test-deploy generate-docs
 
 help:
 	@echo "Usage: make <target>"
@@ -24,6 +24,7 @@ help:
 	@echo "  sync-voice-config  Sync voice_config.json to Ansible template."
 	@echo "  version            Show current git version (tag or commit SHA)."
 	@echo "  clean              Remove the built binary and other generated files."
+	@echo "  generate-docs      Generate documentation from docs folder."
 	@echo ""
 	@echo "Deployment Targets:"
 	@echo "  deploy             Deploy with auto-updated version from git tag/commit."
@@ -31,11 +32,16 @@ help:
 
 all: build
 
-build:
+generate-docs:
+	@echo "🔄 Generating documentation from docs folder..."
+	@node doc_generator.js
+	@echo "✅ Documentation generated in documentation/ folder"
+
+build: generate-docs
 	@echo "Building Aegong Agent Auditor with embedded assets..."
-	@echo "📦 Embedding: static/*, voice_inference.py, requirements.txt"
+	@echo "📦 Embedding: static/*, documentation/docsify/*, voice_inference.py, requirements.txt"
 	go build -o $(BINARY_NAME) .
-	@echo "✅ Build complete: ./$(BINARY_NAME) (single binary with embedded assets)"
+	@echo "✅ Build complete: ./$(BINARY_NAME) (single binary with embedded assets and documentation)"
 
 run: build
 	@echo "Starting Aegong Agent Auditor locally on http://localhost:8080"
@@ -84,7 +90,7 @@ test-deploy:
 	echo "📄 Restored defaults file:"; \
 	grep "^app_version:" $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
 
-deploy:
+deploy: generate-docs
 	@echo "🚀 Preparing deployment with git version..."
 	@# Get current git tag or commit SHA
 	@GIT_VERSION=$$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD); \
@@ -99,4 +105,6 @@ deploy:
 
 clean:
 	@echo "Cleaning up build artifacts..."
-	@rm -f $(BINARY_NAME) generate-keys
+	@rm -f $(BINARY_NAME) generate-keys documentation_embed.go
+	@echo "Cleaning up generated documentation..."
+	@rm -rf documentation

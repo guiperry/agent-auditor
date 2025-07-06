@@ -1,0 +1,14 @@
+{
+  "name": "agent-auditor-documentation",
+  "version": "1.0.0",
+  "description": "Documentation system for Agent Auditor",
+  "private": true,
+  "scripts": {
+    "generate": "node ../doc_generator.js",
+    "postinstall": "echo 'Skipping patch-package'"
+  },
+  "dependencies": {
+    "docsify-cli": "^4.4.4",
+    "glob": "^10.3.10"
+  }
+}

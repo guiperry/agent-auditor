@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Agent Auditor Documentation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/themes/dark.css">
+  <style>
+    :root {
+      --theme-color: #4a9eff;
+      --sidebar-nav-link-color--active: #6fb5ff;
+      --sidebar-nav-link-border-color--active: #6fb5ff;
+    }
+    body {
+      background-color: #0a0a0a;
+      color: #e0e0e0;
+    }
+    .sidebar {
+      background-color: #1a1a2e;
+      border-right: 1px solid #333;
+    }
+    .sidebar-toggle {
+      background-color: rgba(26, 26, 46, 0.8);
+    }
+    .search input {
+      background-color: #16213e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+    }
+    .markdown-section code {
+      background-color: #16213e;
+    }
+    .markdown-section pre {
+      background-color: #16213e;
+    }
+    .markdown-section pre > code {
+      background-color: #16213e;
+    }
+    .markdown-section blockquote {
+      border-left: 4px solid #4a9eff;
+      background-color: #16213e;
+    }
+    .markdown-section a {
+      color: #4a9eff;
+    }
+    .markdown-section a:hover {
+      color: #6fb5ff;
+      text-decoration: underline;
+    }
+    .citation-link {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      background-color: #4a9eff;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 0.8em;
+      text-decoration: none;
+      transition: background-color 0.3s ease;
+    }
+    .citation-link:hover {
+      background-color: #6fb5ff;
+      color: #fff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: 'Agent Auditor',
+      repo: 'https://github.com/guiperry/agent-auditor',
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      themeColor: '#4a9eff',
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: 'Search',
+        noData: 'No results found',
+        depth: 6
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+</body>
+</html>
+  

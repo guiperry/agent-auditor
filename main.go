@@ -21,6 +21,11 @@ import (
 //go:embed static/*
 var staticFiles embed.FS
 
+// Embed documentation files
+//
+//go:embed documentation/docsify/*
+var docsifyFiles embed.FS
+
 // Embed Python scripts and other runtime assets
 //
 //go:embed voice_inference.py
@@ -41,6 +46,14 @@ func getStaticFileSystem() http.FileSystem {
 		panic(err)
 	}
 	return http.FS(staticFS)
+}
+
+func getDocsifyFileSystem() http.FileSystem {
+	docsifyFS, err := fs.Sub(docsifyFiles, "documentation/docsify")
+	if err != nil {
+		panic(err)
+	}
+	return http.FS(docsifyFS)
 }
 
 // writeEmbeddedFile writes an embedded file to the filesystem if it doesn't exist
@@ -158,6 +171,9 @@ func main() {
 	// EMBEDDED Static files - serve from embedded filesystem
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(getStaticFileSystem())))
 
+	// EMBEDDED Documentation files - serve from embedded filesystem
+	r.PathPrefix("/docs/").Handler(http.StripPrefix("/docs/", http.FileServer(getDocsifyFileSystem())))
+
 	// Voice reports (if enabled)
 	if voiceManager.IsEnabled() {
 		r.PathPrefix("/voice_reports/").Handler(http.StripPrefix("/voice_reports/", http.FileServer(http.Dir(voiceManager.config.OutputDir))))
@@ -179,7 +195,7 @@ func main() {
 	}
 
 	fmt.Println("🤖 Aegong - The Agent Auditor is awakening...")
-	fmt.Println("📦 Using embedded static assets - single binary deployment!")
+	fmt.Println("📦 Using embedded static assets and documentation - single binary deployment!")
 	if voiceManager.IsEnabled() {
 		fmt.Println("🔊 Voice inference enabled - Aegong can now speak!")
 	}
