@@ -3,11 +3,11 @@
 # Ansible will automatically load this file.
 
 # AWS Configuration for the ec2_security_group module
-aws_region: "us-east-2a" # Or your desired default region
+aws_region: "us-east-2" # Or your desired default region
 vpc_id: "vpc-08829a6d98471cfc5" # The VPC ID for your EC2 instances
 
 # You can define the security group name here to override the default in the task
-security_group_name: "sg-036e7f2a895a8b66a"
+security_group_name: "launch-wizard-2"
 
 # For better security, restrict SSH access to a specific IP or range.
 # To find your IP, you can run: curl -s ifconfig.me
