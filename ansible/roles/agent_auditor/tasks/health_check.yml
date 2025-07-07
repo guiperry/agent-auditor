@@ -1,0 +1,16 @@
+---
+- name: Perform health check on the application
+  uri:
+    url: "http://localhost:8080/"
+    method: GET
+  register: health_check_result
+  until: health_check_result.status == 200
+  retries: 5
+  delay: 10 # Seconds to wait between retries
+  changed_when: false
+  become: false # This task does not require root privileges
+
+- name: Display health check status
+  debug:
+    msg: "✅ Aegong application is up and running."
+  when: health_check_result.status == 200

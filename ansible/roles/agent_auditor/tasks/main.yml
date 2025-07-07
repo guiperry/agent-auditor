@@ -1,6 +1,4 @@
 ---
-- name: Include Go setup tasks
-  include_tasks: setup_go.yml
 
 - name: Include Python setup tasks
   include_tasks: setup_python.yml
@@ -11,3 +9,5 @@
 - name: Include firewall configuration tasks
   include_tasks: configure_firewall.yml
 
+- name: Include health check tasks
+  include_tasks: health_check.yml

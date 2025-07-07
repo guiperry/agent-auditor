@@ -1,14 +1,14 @@
 {
   "/home/gperry/Documents/GitHub/agent-auditor/docs/DEPLOYMENT_CONFIG.md": "666006ae176585a74e5d7292ab7a79a3",
   "/home/gperry/Documents/GitHub/agent-auditor/docs/DOCUMENTATION.md": "6d8fc96bb0f64607d984f05ca05bdb3b",
-  "/home/gperry/Documents/GitHub/agent-auditor/docs/KEY_MANAGEMENT.md": "8f97b704842ee5bdae97cc794ac57326",
+  "/home/gperry/Documents/GitHub/agent-auditor/docs/KEY_MANAGEMENT.md": "b3b7900ff8905236ad899407426fa171",
   "/home/gperry/Documents/GitHub/agent-auditor/docs/SECURITY_FRAMEWORK.md": "9d04e51df57028ab58215719a399dd81",
   "/home/gperry/Documents/GitHub/agent-auditor/docs/TTS_PROVIDERS.md": "5cd938c578130bc22fdd6a8d78a3e720",
   "/home/gperry/Documents/GitHub/agent-auditor/docs/embedding_example.md": "4fe0b139091a63035199c0b3e70fa2aa",
   "/home/gperry/Documents/GitHub/agent-auditor/docs/references.bib": "f7a562bcf63000ffa5f26dec02b0c4fd",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/index.html": "c0a1cfbdc733d2121260ba19bf00bb2e",
-  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/README.md": "c551581e0298151a73f093acfc690624",
-  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/_sidebar.md": "9d109004f7397fc764ce3949bf344646",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/README.md": "2e430fd345bedc7a49342e2290af75ed",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/_sidebar.md": "284a537e975104b795264b1d74316689",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/deployment/DEPLOYMENT_CONFIG.md": "666006ae176585a74e5d7292ab7a79a3",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/deployment/DOCUMENTATION.md": "c36b1aeb9c1fa609a6af62b65139861c",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/voice/KEY_MANAGEMENT.md": "8f97b704842ee5bdae97cc794ac57326",
@@ -27,5 +27,6 @@
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/references.bib": "f7a562bcf63000ffa5f26dec02b0c4fd",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/go-embed/references.bib": "ec52f00d5549313d8ef4c0f78a6c41f9",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/references.md": "57b3fce351587ca8286e536437085e6a",
-  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/go-embed/references.md": "f70d2db4277d3bf021390c37b0cd1f8e"
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/go-embed/references.md": "f70d2db4277d3bf021390c37b0cd1f8e",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/deployment/KEY_MANAGEMENT.md": "b3b7900ff8905236ad899407426fa171"
 }

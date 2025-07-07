@@ -11,11 +11,10 @@ import (
 	"golang.org/x/term"
 )
 
-// generateKeyFile is a utility function to create an encrypted key file
+// GenerateKeyFile is a utility function to create an encrypted key file
 //
-//nolint:unused // This function is used by the CLI tool
-//lint:ignore U1000 This function is used by the CLI tool
-func generateKeyFile() {
+// This function is exported for use by the CLI tool
+func GenerateKeyFile() {
 	// Define command-line flags
 	keyFilePath := flag.String("output", "default.key", "Path to output key file")
 	flag.Parse()
@@ -97,11 +96,5 @@ func getMapKeys(m map[string]string) []string {
 	return keys
 }
 
-// This function can be called from main.go with a command-line flag
-// Example: ./aegong -generate-keys
-//
-//nolint:unused // This function is used as an entry point for the key generation tool
-//lint:ignore U1000 This function is used as an entry point for the key generation tool
-func main() {
-	generateKeyFile()
-}
+// This function can be called from cmd/generate_keys/main.go
+// Example: go run cmd/generate_keys/main.go -output default.key

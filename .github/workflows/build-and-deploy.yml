@@ -1,0 +1,49 @@
+name: Build and Deploy
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags like v1.0.0
+
+jobs:
+  deploy:
+    name: Build and Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build the binary
+        run: make build
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible sshpass
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 400 ~/.ssh/id_rsa
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy with Ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          # The Makefile's deploy target now handles everything, including the vault password.
+          make deploy
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -rf ~/.ssh

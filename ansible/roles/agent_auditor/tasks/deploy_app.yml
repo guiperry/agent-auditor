@@ -13,27 +13,26 @@
     create_home: yes
     state: present
 
-- name: Clone the Agent Auditor repository
-  git:
-    repo: "{{ repo_url }}"
-    dest: "{{ app_dir }}"
-    version: "{{ app_version }}"
-    force: true
-  become: true
-  become_user: "{{ app_user }}"
+- name: Copy local binary to server
+  copy:
+    src: "../../../{{ binary_name }}" # Path relative to the playbook file
+    dest: "{{ app_dir }}/{{ binary_name }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755' # Make it executable
+
+- name: Copy requirements.txt to server
+  copy:
+    src: "../../../requirements.txt"
+    dest: "{{ app_dir }}/requirements.txt"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
 
 - name: Install Python dependencies
   pip:
     requirements: "{{ app_dir }}/requirements.txt"
     executable: pip3
-  become: true
-  become_user: "{{ app_user }}"
-- name: Build the Agent Auditor binary
-  command:
-    cmd: /usr/local/go/bin/go build -o aegong .
-    chdir: "{{ app_dir }}"
-  environment:
-    PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
   become: true
   become_user: "{{ app_user }}"
 

@@ -13,46 +13,28 @@ Leveraging advanced threat detection capabilities and robust security measures, 
 
 ## 🏗️ Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    AEGONG Core Engine                           │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │  Binary      │  │  Static      │  │  Dynamic     │         │
-│  │  Analyzer    │  │  Code        │  │  Execution   │         │
-│  │              │  │  Scanner     │  │  Monitor     │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────────┐
-│                SHIELD Validation Modules                       │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ Segmentation │  │ Heuristic    │  │ Integrity    │         │
-│  │ Validator    │  │ Pattern      │  │ Checker      │         │
-│  │              │  │ Detector     │  │              │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│                                                                │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │ Privilege    │  │ Audit Trail  │  │ Multi-Party  │         │
-│  │ Escalation   │  │ Validator    │  │ Consensus    │         │
-│  │ Detector     │  │              │  │ Engine       │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────────┐
-│                Voice Reporter Layer                            │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌───────────────────────────────────┐      │
-│  │ Voice        │  │       TTS Providers               │      │
-│  │ Integration  │  │ ┌─────────┐ ┌─────────┐ ┌───────┐ │      │
-│  │ Manager      │  │ │ OpenAI  │ │ Google  │ │ Azure │ │      │
-│  │              │  │ └─────────┘ └─────────┘ └───────┘ │      │
-│  │              │  │ ┌─────────────────────────────┐   │      │
-│  │              │  │ │         Cartesia            │   │      │
-│  │              │  │ └─────────────────────────────┘   │      │
-│  └──────────────┘  └───────────────────────────────────┘      │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph CoreEngine["AEGONG Core Engine"]
+        BA["Binary Analyzer"] --- SCS["Static Code Scanner"] --- DEM["Dynamic Execution Monitor"]
+    end
+
+    subgraph ShieldModules["SHIELD Validation Modules"]
+        SV["Segmentation Validator"] --- HPD["Heuristic Pattern Detector"] --- IC["Integrity Checker"]
+        PED["Privilege Escalation Detector"] --- ATV["Audit Trail Validator"] --- MPCE["Multi-Party Consensus Engine"]
+    end
+
+    subgraph VoiceLayer["Voice Reporter Layer"]
+        VIM["Voice Integration Manager"] --- TTSProviders["TTS Providers"]
+        
+        subgraph TTSProviders
+            OpenAI --- Google --- Azure
+            Cartesia
+        end
+    end
+
+    CoreEngine --> ShieldModules
+    ShieldModules --> VoiceLayer
 ```
 
 ## 🎯 Threat Detection Capabilities
@@ -135,7 +117,7 @@ Aegong now speaks! The new voice report feature provides:
 3. **Azure Speech** - Microsoft's neural voices with natural intonation
 4. **Cartesia TTS** - Fast, low-latency voice generation
 
-For detailed setup instructions and provider-specific options, see [TTS Providers Guide](docs/TTS_PROVIDERS.md).
+For detailed setup instructions and provider-specific options, see [TTS Providers Guide](documentation/docsify/voice/TTS_PROVIDERS.md).
 
 ## 🚀 Getting Started
 
@@ -209,7 +191,7 @@ The deployment process automatically:
 - Deploys the application with proper version tracking
 - Configures the environment with appropriate settings
 
-For detailed deployment instructions, AWS configuration, and voice configuration synchronization, see the [Deployment Configuration Guide](docs/DEPLOYMENT_CONFIG.md).
+For detailed deployment instructions, AWS configuration, and voice configuration synchronization, see the [Deployment Configuration Guide](documentation/docsify/deployment/DEPLOYMENT_CONFIG.md).
 
 ### Command Line Usage
 
@@ -234,7 +216,7 @@ python3 voice_inference.py --report reports/report_12345678.json --provider azur
 python3 voice_inference.py --report reports/report_12345678.json --provider cartesia --cartesia-api-key YOUR_API_KEY --voice sonic-english
 ```
 
-See the [TTS Providers Guide](docs/TTS_PROVIDERS.md) for more options and detailed configuration.
+See the [TTS Providers Guide](documentation/docsify/voice/TTS_PROVIDERS.md) for more options and detailed configuration.
 
 ## 🌐 Web Interface Features
 
@@ -309,10 +291,12 @@ When voice reports are enabled, an additional audio file is generated containing
 - `voice_reports/` - Generated voice report audio files
 - `aegong_audit.log` - Immutable audit trail
 
-### Documentation
-- [TTS Providers Guide](docs/TTS_PROVIDERS.md) - Detailed setup for voice providers
-- [Deployment Configuration](docs/DEPLOYMENT_CONFIG.md) - Git-based version management and deployment automation
-- [Key Management](docs/KEY_MANAGEMENT.md) - API key management and security
+### Documentation Hub
+- [Documentation Home](documentation/docsify/README.md) - Main documentation hub
+- [TTS Providers Guide](documentation/docsify/voice/TTS_PROVIDERS.md) - Detailed setup for voice providers
+- [Deployment Configuration](documentation/docsify/deployment/DEPLOYMENT_CONFIG.md) - Git-based version management and deployment automation
+- [Key Management](documentation/docsify/voice/KEY_MANAGEMENT.md) - API key management and security
+- [Security Framework](documentation/docsify/security/SECURITY_FRAMEWORK.md) - Agent security framework
 
 ## 🛠️ Development
 
@@ -330,10 +314,19 @@ Agent_Auditor/
 ├── voice_inference.py   # Python script for multi-provider TTS integration
 ├── voice_config.json    # Voice feature configuration
 ├── requirements.txt     # Python dependencies with TTS provider support
-├── docs/
-│   ├── TTS_PROVIDERS.md     # Detailed guide for TTS provider setup
-│   ├── DEPLOYMENT_CONFIG.md # Git-based version management and deployment
-│   └── KEY_MANAGEMENT.md    # API key management and security
+├── documentation/           # Documentation hub
+│   ├── docsify/             # Documentation system
+│   │   ├── README.md        # Documentation home
+│   │   ├── _sidebar.md      # Documentation navigation
+│   │   ├── index.html       # Documentation web interface
+│   │   ├── voice/           # Voice integration documentation
+│   │   │   ├── TTS_PROVIDERS.md  # TTS provider setup guide
+│   │   │   └── KEY_MANAGEMENT.md # API key management guide
+│   │   ├── deployment/      # Deployment documentation
+│   │   │   ├── DEPLOYMENT_CONFIG.md # Deployment configuration guide
+│   │   │   └── DOCUMENTATION.md # Documentation system guide
+│   │   └── security/        # Security documentation
+│   │       └── SECURITY_FRAMEWORK.md # Security framework guide
 ├── static/
 │   ├── index.html       # Web interface
 │   ├── style.css        # Styling and animations

@@ -2,6 +2,14 @@
 # Configure firewall rules for Agent Auditor application
 # Supports both UFW (Ubuntu) and AWS Security Groups
 
+- name: Check if running on AWS EC2 to determine firewall strategy
+  uri:
+    url: http://169.254.169.254/latest/meta-data/instance-id
+    timeout: 2
+  register: aws_instance_check
+  ignore_errors: true
+  when: firewall_enabled
+
 - name: Install UFW firewall (Ubuntu/Debian)
   package:
     name: ufw
@@ -9,7 +17,7 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-
+    - not (aws_instance_check is succeeded)
 - name: Enable UFW firewall
   ufw:
     state: enabled
@@ -18,7 +26,7 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-
+    - not (aws_instance_check is succeeded)
 - name: Allow SSH access
   ufw:
     rule: allow
@@ -27,7 +35,7 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-
+    - not (aws_instance_check is succeeded)
 - name: Allow Agent Auditor application port
   ufw:
     rule: allow
@@ -37,46 +45,25 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-
-- name: Display AWS Security Group configuration
-  debug:
-    msg: |
-      AWS Security Group Configuration Required:
-      ========================================
-      
-      For AWS EC2 deployment, ensure your Security Group allows:
-      
-      Inbound Rules:
-      - Type: SSH
-        Protocol: TCP
-        Port: 22
-        Source: Your IP or 0.0.0.0/0 (less secure)
-        
-      - Type: Custom TCP
-        Protocol: TCP
-        Port: {{ app_port }}
-        Source: 0.0.0.0/0 (for public access) or specific IP ranges
-        Description: Agent Auditor Web Interface
-      
-      Outbound Rules:
-      - Type: All Traffic
-        Protocol: All
-        Port: All
-        Destination: 0.0.0.0/0
-        
-      AWS CLI Command to create Security Group:
-      aws ec2 create-security-group --group-name aegong-sg --description "Agent Auditor Security Group"
-      aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 22 --cidr 0.0.0.0/0
-      aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port {{ app_port }} --cidr 0.0.0.0/0
-  when: firewall_enabled
-
-- name: Check if running on AWS EC2
-  uri:
-    url: http://169.254.169.254/latest/meta-data/instance-id
-    timeout: 2
-  register: aws_instance_check
-  ignore_errors: true
-  when: firewall_enabled
+    - not (aws_instance_check is succeeded)
+- name: Ensure AWS Security Group is configured for EC2 instance
+  amazon.aws.ec2_security_group:
+    name: "{{ security_group_name | default('aegong-sg') }}"
+    description: "Security group for Agent Auditor"
+    vpc_id: "{{ vpc_id }}" # NOTE: This variable must be defined, e.g., via facts or extra-vars
+    region: "{{ aws_region | default(ansible_ec2_placement_region, true) | default('us-east-1') }}"
+    rules:
+      - proto: tcp
+        ports: [22]
+        cidr_ip: "{{ ssh_allowed_cidr | default('0.0.0.0/0') }}" # WARNING: Restrict this in production
+        rule_desc: "Allow SSH"
+      - proto: tcp
+        ports: ["{{ app_port }}"]
+        cidr_ip: "0.0.0.0/0"
+        rule_desc: "Allow Agent Auditor Web Interface"
+  when:
+    - firewall_enabled
+    - aws_instance_check is succeeded
 
 - name: Display AWS instance information
   debug:
@@ -114,4 +101,4 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-    - aws_instance_check is failed
+    - not (aws_instance_check is succeeded)

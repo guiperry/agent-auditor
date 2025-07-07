@@ -264,7 +264,10 @@ function parseMarkdownFile(filePath, citations) {
   // Determine category based on content or filename
   let category = 'guides'; // Default category
   
-  if (filePath.toLowerCase().includes('deploy') || processedContent.toLowerCase().includes('deployment')) {
+  // Check for KEY_MANAGEMENT.md specifically first
+  if (path.basename(filePath) === 'KEY_MANAGEMENT.md') {
+    category = 'security';
+  } else if (filePath.toLowerCase().includes('deploy') || processedContent.toLowerCase().includes('deployment')) {
     category = 'deployment';
   } else if (filePath.toLowerCase().includes('voice') || processedContent.toLowerCase().includes('tts')) {
     category = 'voice';

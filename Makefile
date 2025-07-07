@@ -4,6 +4,7 @@ SHELL := /bin/bash
 # Project variables
 BINARY_NAME=aegong
 ANSIBLE_DIR=ansible
+ANSIBLE_VAULT_FILE=$(ANSIBLE_DIR)/group_vars/all/vault.yml
 ANSIBLE_INVENTORY=$(ANSIBLE_DIR)/inventory/hosts.ini
 ANSIBLE_PLAYBOOK=$(ANSIBLE_DIR)/playbook.yml
 
@@ -11,7 +12,7 @@ ANSIBLE_PLAYBOOK=$(ANSIBLE_DIR)/playbook.yml
 .SILENT:
 
 # Phony targets don't represent files.
-.PHONY: help all build run test keys deploy clean sync-voice-config version test-deploy generate-docs
+.PHONY: help all build run test keys test-keys deploy clean sync-voice-config version test-deploy generate-docs
 
 help:
 	@echo "Usage: make <target>"
@@ -21,6 +22,7 @@ help:
 	@echo "  run                Build and run the Go application locally on port 8080."
 	@echo "  test               Run all Go tests."
 	@echo "  keys               Generate a new encrypted API key file (default.key)."
+	@echo "  test-keys          Build the key testing utility."
 	@echo "  sync-voice-config  Sync voice_config.json to Ansible template."
 	@echo "  version            Show current git version (tag or commit SHA)."
 	@echo "  clean              Remove the built binary and other generated files."
@@ -54,10 +56,17 @@ test:
 
 keys:
 	@echo "Generating new encrypted key file..."
-	@go build -o generate-keys key_manager.go generate_key_file.go
+	@go build -o generate-keys ./cmd/generate_keys/main.go
 	@./generate-keys -output default.key
 	@echo "✅ New 'default.key' created. Place it in '$(ANSIBLE_DIR)/roles/agent_auditor/files/' before deploying."
 	@rm generate-keys
+
+test-keys:
+	@echo "Building key testing utility..."
+	@go build -o test-keys ./cmd/test_keys/main.go
+	@echo "✅ Key testing utility built. Usage:"
+	@echo "  ./test-keys -key-file default.key -list"
+	@echo "  ./test-keys -key-file default.key -key-name openai"
 
 sync-voice-config:
 	@echo "Synchronizing voice_config.json with Ansible template..."
@@ -90,7 +99,7 @@ test-deploy:
 	echo "📄 Restored defaults file:"; \
 	grep "^app_version:" $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
 
-deploy: generate-docs
+deploy: build
 	@echo "🚀 Preparing deployment with git version..."
 	@# Get current git tag or commit SHA
 	@GIT_VERSION=$$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD); \
@@ -99,12 +108,15 @@ deploy: generate-docs
 	sed -i.bak "s/^app_version:.*/app_version: \"$$GIT_VERSION\"/" $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml; \
 	echo "✅ Updated app_version to: $$GIT_VERSION"; \
 	echo "🚀 Deploying application with Ansible..."; \
-	ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --ask-vault-pass; \
+	if [ -n "$$ANSIBLE_VAULT_PASSWORD" ]; then \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --vault-password-file <(echo "$$ANSIBLE_VAULT_PASSWORD"); \
+	else \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --ask-vault-pass; \
+	fi; \
 	echo "🔄 Restoring original defaults file..."; \
 	mv $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml.bak $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
 
 clean:
 	@echo "Cleaning up build artifacts..."
-	@rm -f $(BINARY_NAME) generate-keys documentation_embed.go
-	@echo "Cleaning up generated documentation..."
-	@rm -rf documentation
+	@rm -f $(BINARY_NAME) generate-keys test-keys
+	

@@ -1,9 +1,10 @@
 ---
 # Application settings
 app_user: "aegong"
+binary_name: "aegong"
 app_group: "aegong"
+app_port: 8080
 app_dir: "/opt/agent-auditor"
-repo_url: "https://github.com/gperry/agent-auditor.git" # Or your fork
 app_version: "v1.0.1" # Or use a tag/commit SHA like "v1.0.1" or "a1b2c3d4e5f6"
 
 # Go settings

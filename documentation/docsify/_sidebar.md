@@ -9,9 +9,9 @@
 ## Security
 
 * [Agent Security Framework](security/SECURITY_FRAMEWORK.md)
+* [Secure API Key Management](deployment/KEY_MANAGEMENT.md)
 
 ## Voice Integration
 
-* [Secure API Key Management](voice/KEY_MANAGEMENT.md)
 * [TTS Providers Guide for Agent Auditor Voice Inference](voice/TTS_PROVIDERS.md)
 

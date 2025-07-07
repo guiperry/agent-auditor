@@ -1,6 +1,6 @@
 {
-    "enabled": false,
-    "provider": "openai",
+    "enabled": true,
+    "provider": "cerebras",
     "key_file": "default.key",
     "key_pass_env": "AEGONG_KEY_PASS",
     "output_dir": "voice_reports",
