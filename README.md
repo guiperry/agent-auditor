@@ -15,6 +15,10 @@ Leveraging advanced threat detection capabilities and robust security measures, 
 
 ```mermaid
 flowchart TB
+    subgraph ValidationLayer["Agent Validation Layer"]
+        AV["Agent Validator"] --- CD["Capability Detector"] --- FC["Format Classifier"]
+    end
+    
     subgraph CoreEngine["AEGONG Core Engine"]
         BA["Binary Analyzer"] --- SCS["Static Code Scanner"] --- DEM["Dynamic Execution Monitor"]
     end
@@ -33,13 +37,14 @@ flowchart TB
         end
     end
 
+    ValidationLayer --> CoreEngine
     CoreEngine --> ShieldModules
     ShieldModules --> VoiceLayer
 ```
 
 ## 🎯 Threat Detection Capabilities
 
-Aegon's keen eye can detect all 9 ATFAA threat vectors:
+Aegong's keen eye can detect all 9 ATFAA threat vectors:
 
 ### T1: Reasoning Path Hijacking
 - Detects attempts to manipulate agent reasoning processes
@@ -86,6 +91,46 @@ Aegon's keen eye can detect all 9 ATFAA threat vectors:
 - Monitors logging manipulation
 - Identifies stealth operation patterns
 
+## 🔍 Agent Validation System
+
+Before analysis begins, Aegong's intelligent validation system determines if the uploaded file is actually an AI agent:
+
+### Agent Identification Criteria
+
+For a binary to be classified as an AI agent, it must demonstrate these core capabilities:
+
+1. **Perception** - Functions for receiving input from the environment
+2. **Action** - Functions for taking actions or producing output
+3. **Reasoning or Memory** - Either decision-making logic or state management
+
+### Supported File Types
+
+Aegong can validate and analyze a wide range of agent formats:
+
+- **Executable Binaries** - ELF, PE, Mach-O, and generic executables (.exe, .bin, .app)
+- **Libraries** - Shared objects and dynamic libraries (.so, .dll, .dylib)
+- **WebAssembly** - WASM modules
+- **Scripts** - Python, JavaScript, Go, Ruby, Shell scripts (.py, .js, .go, .rb, .sh)
+- **Java Archives** - JAR files
+
+### Validation Process
+
+1. **Format Detection** - Identifies file type using magic numbers and extensions
+2. **Capability Analysis** - Scans for evidence of agent capabilities in:
+   - Function/method names
+   - Import/export tables
+   - String constants
+   - Section contents
+3. **Confidence Scoring** - Calculates confidence level based on detected capabilities
+4. **Validation Results** - Provides detailed report of detected capabilities and confidence
+
+### Benefits
+
+- **Resource Efficiency** - Only valid agents proceed to full security analysis
+- **Accurate Classification** - Prevents false positives from non-agent files
+- **Detailed Feedback** - Explains why a file doesn't qualify as an agent
+- **Format Flexibility** - Works with multiple binary and script formats
+
 ## 🛡️ SHIELD Protection Modules
 
 Aegong employs 6 comprehensive validation modules:
@@ -105,7 +150,7 @@ Aegong now speaks! The new voice report feature provides:
 - **Detailed Explanations** - Enhanced explanations of security recommendations
 - **Multiple TTS Providers** - Support for OpenAI, Google Cloud, Azure, and Cartesia
 - **High-Quality Voices** - Choose from a variety of natural-sounding voices
-- **Personalized Delivery** - Aegon's unique personality comes through in spoken form
+- **Personalized Delivery** - Aegong's unique personality comes through in spoken form
 - **Accessible Reporting** - Audio format improves accessibility for all users
 - **Asynchronous Generation** - Voice reports are generated in the background
 - **Persistent Storage** - Audio files are saved for future reference
@@ -169,7 +214,7 @@ For detailed setup instructions and provider-specific options, see [TTS Provider
    ./aegong
    ```
 
-6. **Access Aegon's interface**
+6. **Access Aegong's interface**
    Open your browser to `http://localhost:8080`
 
 ### Deployment
@@ -223,17 +268,20 @@ See the [TTS Providers Guide](documentation/docsify/voice/TTS_PROVIDERS.md) for 
 The web interface provides a modern, interactive experience:
 
 - **Drag & Drop Upload** - Easy agent binary submission
+- **Agent Validation** - Automatic verification of agent capabilities with detailed feedback
 - **Real-time Analysis** - Watch Aegong work his magic
 - **Interactive Reports** - Detailed threat analysis with visual indicators
 - **Risk Assessment** - Color-coded risk levels (MINIMAL → CRITICAL)
-- **Aegon's Commentary** - Personalized messages from your digital guardian
-- **Voice Reports** - Listen to Aegon's spoken analysis with multiple TTS provider options
+- **Aegong's Commentary** - Personalized messages from your digital guardian
+- **Capability Visualization** - See detected agent capabilities and confidence levels
+- **Voice Reports** - Listen to Aegong's spoken analysis with multiple TTS provider options
 - **Audit History** - Browse previous security assessments
 - **Report Export** - Download detailed JSON reports
+- **Non-Agent Feedback** - Clear explanations when uploaded files don't qualify as agents
 
 ### Risk Levels
 
-- 🟢 **MINIMAL** (0-20%) - Aegon's digital seal of approval
+- 🟢 **MINIMAL** (0-20%) - Aegong's digital seal of approval
 - 🟡 **LOW** (20-40%) - Minor concerns, light supervision recommended
 - 🟠 **MEDIUM** (40-60%) - Needs proper boundaries and supervision
 - 🔴 **HIGH** (60-80%) - Significant security concerns, immediate attention required
@@ -262,10 +310,19 @@ Each audit generates a comprehensive report including:
     "segmentation": {"valid": true, "results": {}},
     "heuristic": {"valid": false, "results": {}}
   },
+  "details": {
+    "validation": {
+      "is_agent": true,
+      "agent_type": "elf",
+      "confidence": 0.85,
+      "capabilities": ["perception", "action", "reasoning", "memory", "ai_libraries"],
+      "reasons": ["ELF binary has 5 agent capabilities"]
+    }
+  },
   "overall_risk": 0.65,
   "risk_level": "HIGH",
   "recommendations": ["recommendation1", "recommendation2"],
-  "aegon_message": "Aegon's personalized assessment",
+  "aegon_message": "Aegong's personalized assessment",
   "voice_report": {
     "url": "/voice_reports/aegon_report_sha256_ha.wav",
     "provider": "openai",
@@ -274,7 +331,7 @@ Each audit generates a comprehensive report including:
 }
 ```
 
-When voice reports are enabled, an additional audio file is generated containing Aegon's spoken analysis of the audit results, with detailed explanations of security recommendations. The voice report includes metadata about which TTS provider and voice were used for generation.
+When voice reports are enabled, an additional audio file is generated containing Aegong's spoken analysis of the audit results, with detailed explanations of security recommendations. The voice report includes metadata about which TTS provider and voice were used for generation.
 
 ## 🔧 Configuration
 
@@ -306,6 +363,7 @@ Agent_Auditor/
 ├── go.mod               # Dependency management
 ├── go.sum               # Dependency checksums
 ├── main.go              # Main application and web server
+├── agent_validator.go   # Agent validation and capability detection
 ├── engine.go            # Core AEGONG engine implementation
 ├── detectors.go         # Threat detection modules (T1-T9)
 ├── shields.go           # SHIELD validation modules

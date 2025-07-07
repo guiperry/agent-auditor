@@ -1,0 +1,9 @@
+---
+# tasks file for agent_auditor prerequisites
+
+- name: Ensure ACL package is installed for unprivileged become
+  ansible.builtin.package:
+    name: acl
+    state: present
+  become: true
+  become_user: root

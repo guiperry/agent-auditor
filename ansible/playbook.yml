@@ -1,6 +1,6 @@
 ---
 - name: Deploy Agent Auditor Application
-  hosts: webservers
+  hosts: aegong_servers
   become: true
   roles:
     - agent_auditor

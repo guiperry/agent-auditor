@@ -2,13 +2,26 @@
 # Configure firewall rules for Agent Auditor application
 # Supports both UFW (Ubuntu) and AWS Security Groups
 
+- name: Get IMDSv2 token for EC2 metadata access
+  shell: |
+    TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null) || echo ""
+    echo $TOKEN
+  register: imdsv2_token
+  ignore_errors: true
+  changed_when: false
+  when: firewall_enabled
+
 - name: Check if running on AWS EC2 to determine firewall strategy
   uri:
     url: http://169.254.169.254/latest/meta-data/instance-id
     timeout: 2
+    headers:
+      X-aws-ec2-metadata-token: "{{ imdsv2_token.stdout }}"
   register: aws_instance_check
   ignore_errors: true
-  when: firewall_enabled
+  when: 
+    - firewall_enabled
+    - imdsv2_token.stdout != ""
 
 - name: Install UFW firewall (Ubuntu/Debian)
   package:
@@ -17,7 +30,7 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-    - not (aws_instance_check is succeeded)
+    - (aws_instance_check is not defined) or (aws_instance_check is failed) or (not aws_instance_check.status is defined) or (aws_instance_check.status != 200)
 - name: Enable UFW firewall
   ufw:
     state: enabled
@@ -26,7 +39,7 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-    - not (aws_instance_check is succeeded)
+    - (aws_instance_check is not defined) or (aws_instance_check is failed) or (not aws_instance_check.status is defined) or (aws_instance_check.status != 200)
 - name: Allow SSH access
   ufw:
     rule: allow
@@ -35,7 +48,7 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-    - not (aws_instance_check is succeeded)
+    - (aws_instance_check is not defined) or (aws_instance_check is failed) or (not aws_instance_check.status is defined) or (aws_instance_check.status != 200)
 - name: Allow Agent Auditor application port
   ufw:
     rule: allow
@@ -45,17 +58,33 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-    - not (aws_instance_check is succeeded)
+    - (aws_instance_check is not defined) or (aws_instance_check is failed) or (not aws_instance_check.status is defined) or (aws_instance_check.status != 200)
+- name: Check if AWS credentials are available
+  shell: |
+    if [ -f ~/.aws/credentials ] || [ -n "$AWS_ACCESS_KEY_ID" ] || [ -n "$AWS_SECRET_ACCESS_KEY" ] || curl -s -m 1 http://169.254.169.254/latest/meta-data/iam/security-credentials/ | grep -v "404 - Not Found"; then
+      echo "available"
+    else
+      echo "unavailable"
+    fi
+  register: aws_credentials_check
+  changed_when: false
+  ignore_errors: true
+  when:
+    - firewall_enabled
+    - aws_instance_check is defined
+    - aws_instance_check.status is defined
+    - aws_instance_check.status == 200
+
 - name: Ensure AWS Security Group is configured for EC2 instance
   amazon.aws.ec2_security_group:
-    name: "{{ security_group_name | default('aegong-sg') }}"
+    name: "{{ security_group_name }}"
     description: "Security group for Agent Auditor"
-    vpc_id: "{{ vpc_id }}" # NOTE: This variable must be defined, e.g., via facts or extra-vars
+    vpc_id: "{{ vpc_id }}"
     region: "{{ aws_region | default(ansible_ec2_placement_region, true) | default('us-east-1') }}"
     rules:
       - proto: tcp
         ports: [22]
-        cidr_ip: "{{ ssh_allowed_cidr | default('0.0.0.0/0') }}" # WARNING: Restrict this in production
+        cidr_ip: "{{ ssh_allowed_cidr }}"
         rule_desc: "Allow SSH"
       - proto: tcp
         ports: ["{{ app_port }}"]
@@ -63,9 +92,15 @@
         rule_desc: "Allow Agent Auditor Web Interface"
   when:
     - firewall_enabled
-    - aws_instance_check is succeeded
+    - aws_instance_check is defined
+    - aws_instance_check.status is defined
+    - aws_instance_check.status == 200
+    - vpc_id != ""
+    - aws_credentials_check.stdout is defined
+    - aws_credentials_check.stdout == "available"
+  ignore_errors: true
 
-- name: Display AWS instance information
+- name: Display AWS instance information (with Security Group configured)
   debug:
     msg: |
       AWS EC2 Instance Detected!
@@ -73,7 +108,69 @@
       
       Instance ID: {{ aws_instance_check.content | default('Unable to retrieve') }}
       
-      Make sure your EC2 instance has the correct Security Group attached.
+      Security Group "{{ security_group_name }}" has been configured.
+      
+      To access your Agent Auditor application:
+      http://{{ ansible_default_ipv4.address }}:{{ app_port }}
+      
+      Or if you have an Elastic IP or domain:
+      http://YOUR_DOMAIN_OR_EIP:{{ app_port }}
+  when: 
+    - firewall_enabled
+    - aws_instance_check is defined
+    - aws_instance_check.status is defined
+    - aws_instance_check.status == 200
+    - vpc_id != ""
+    - aws_credentials_check.stdout is defined
+    - aws_credentials_check.stdout == "available"
+
+- name: Display AWS credentials warning
+  debug:
+    msg: |
+      ⚠️ IMPORTANT: AWS CREDENTIALS NOT AVAILABLE ⚠️
+      ==========================================
+      
+      We detected that this server is running on AWS EC2, but AWS credentials are not available.
+      This means we cannot automatically configure the security group for you.
+      
+      YOU MUST MANUALLY CONFIGURE YOUR AWS SECURITY GROUP to allow traffic to your application!
+      
+      Please follow these steps:
+      1. Log in to the AWS Management Console
+      2. Go to EC2 > Security Groups
+      3. Find the security group attached to this instance
+         (You can find this in EC2 > Instances > Select your instance > Security tab)
+      4. Edit the inbound rules to allow:
+         - TCP port 22 (SSH) from your IP address
+         - TCP port {{ app_port }} from anywhere (0.0.0.0/0) or from specific IPs
+      
+      Without this configuration, you will not be able to access the application from the internet.
+      
+      Your application is running at:
+      http://{{ ansible_default_ipv4.address }}:{{ app_port }}
+      
+      But it will only be accessible after you configure the security group!
+  when: 
+    - firewall_enabled
+    - aws_instance_check is defined
+    - aws_instance_check.status is defined
+    - aws_instance_check.status == 200
+    - aws_credentials_check.stdout is defined
+    - aws_credentials_check.stdout == "unavailable"
+
+- name: Display AWS instance information (without VPC ID)
+  debug:
+    msg: |
+      AWS EC2 Instance Detected!
+      =========================
+      
+      Instance ID: {{ aws_instance_check.content | default('Unable to retrieve') }}
+      
+      WARNING: No VPC ID provided, Security Group was NOT configured!
+      
+      Please manually ensure your EC2 instance has the correct Security Group attached
+      with ports 22 (SSH) and {{ app_port }} (Agent Auditor) open.
+      
       You can check this in the AWS Console under EC2 > Instances > Security Groups
       
       To access your Agent Auditor application:
@@ -83,7 +180,12 @@
       http://YOUR_DOMAIN_OR_EIP:{{ app_port }}
   when: 
     - firewall_enabled
-    - aws_instance_check is succeeded
+    - aws_instance_check is defined
+    - aws_instance_check.status is defined
+    - aws_instance_check.status == 200
+    - vpc_id == ""
+    - aws_credentials_check.stdout is defined
+    - aws_credentials_check.stdout == "available"
 
 - name: Display local firewall status
   debug:
@@ -101,4 +203,28 @@
   when: 
     - firewall_enabled
     - ansible_os_family == "Debian"
-    - not (aws_instance_check is succeeded)
+    - (aws_instance_check is not defined) or (aws_instance_check is failed) or (not aws_instance_check.status is defined) or (aws_instance_check.status != 200)
+
+- name: Display AWS EC2 detection failure warning
+  debug:
+    msg: |
+      ⚠️ IMPORTANT: AWS EC2 DETECTION FAILED ⚠️
+      =======================================
+      
+      We attempted to detect if this server is running on AWS EC2, but the detection failed.
+      If this server IS running on AWS EC2, you need to manually configure your security group!
+      
+      Please ensure your EC2 instance has a security group with the following ports open:
+      - SSH (22/tcp)
+      - Agent Auditor ({{ app_port }}/tcp)
+      
+      You can configure this in the AWS Console:
+      1. Go to EC2 > Security Groups
+      2. Select the security group attached to your instance
+      3. Edit inbound rules to allow traffic on ports 22 and {{ app_port }}
+      
+      Without this configuration, you will not be able to access the application from the internet.
+  when:
+    - firewall_enabled
+    - imdsv2_token is defined
+    - (aws_instance_check is not defined) or (aws_instance_check is failed) or (not aws_instance_check.status is defined) or (aws_instance_check.status != 200)

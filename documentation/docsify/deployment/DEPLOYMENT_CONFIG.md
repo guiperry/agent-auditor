@@ -173,14 +173,87 @@ make test-deploy
 
 ### 4. AWS Security Group Setup
 
-#### **Manual Setup** (if not using AWS CLI):
+#### **Automated AWS Security Group Management**
+
+To make your deployments fully automated, you can use Ansible to manage the AWS Security Group directly. This ensures that the correct ports are always open without manual intervention.
+
+##### **Prerequisites**:
+
+1. **Install the AWS Collection**:
+   ```bash
+   pip install ansible boto3 botocore
+   ansible-galaxy collection install amazon.aws
+   ```
+
+2. **Configure AWS Credentials**:
+   
+   Your AWS Access Key ID and Secret Access Key are your permanent credentials. Never hardcode them in your code, commit them to Git, or share them publicly.
+
+   **How to Create and Find Your Access Keys**:
+   1. Sign in to the AWS Management Console
+   2. Navigate to the IAM service (type "IAM" in the top search bar)
+   3. Go to "Users" in the left-hand menu and click on your IAM user name (e.g., gperry)
+      - *Security Note*: It's best practice to use an IAM user for this, not your root account
+   4. Go to the "Security credentials" tab
+   5. Scroll down to the "Access keys" section and click "Create access key"
+   6. Choose "Command Line Interface (CLI)" as the use case and click "Next"
+   7. (Optional) Set a description tag (e.g., "Ansible Control Node Key") and click "Create access key"
+   8. **IMPORTANT**: Save both the Access key ID and the Secret access key (this is the only time you will see the Secret access key)
+      - You can click the "Download .csv file" button to save them securely
+
+   **Configure the Keys for Ansible**:
+   ```bash
+   # Install AWS CLI if needed
+   sudo apt-get update && sudo apt-get install awscli -y
+   
+   # Configure AWS credentials
+   aws configure
+   
+   # Enter your credentials when prompted:
+   # AWS Access Key ID [None]: YOUR_ACCESS_KEY_ID_HERE
+   # AWS Secret Access Key [None]: YOUR_SECRET_ACCESS_KEY_HERE
+   # Default region name [None]: us-east-2
+   # Default output format [None]: json
+   ```
+
+3. **Add the Security Group Task to Your Ansible Playbook**:
+
+   Add the following task to your Ansible deployment playbook:
+
+   ```yaml
+   - name: Ensure security group exists
+     amazon.aws.ec2_security_group:
+       name: aegong-sg
+       description: Agent Auditor Security Group
+       vpc_id: "{{ vpc_id }}"
+       region: "{{ aws_region | default(ansible_ec2_placement_region) }}"
+       rules:
+         - proto: tcp
+           ports:
+             - 22
+           cidr_ip: "{{ ssh_allowed_cidr | default('0.0.0.0/0') }}"
+           rule_desc: Allow SSH access
+         - proto: tcp
+           ports:
+             - 8080
+           cidr_ip: 0.0.0.0/0
+           rule_desc: Allow application access
+     register: security_group
+   ```
+
+4. **Required Variables**:
+   - `vpc_id`: The ID of the VPC where the security group should be created
+   - `aws_region`: The AWS region (defaults to the instance's region if running on EC2)
+   - `ssh_allowed_cidr` (Optional): Restrict SSH access to a specific IP range for better security
+
+#### **Manual Setup** (if not using Ansible automation):
 1. Go to AWS Console > EC2 > Security Groups
 2. Create new Security Group: `aegong-sg`
 3. Add Inbound Rules:
    - SSH: TCP/22 from your IP
    - Custom TCP: TCP/8080 from 0.0.0.0/0 (or specific IPs)
 
-#### **AWS CLI Setup**:
+#### **AWS CLI Setup** (alternative to Ansible):
 ```bash
 aws ec2 create-security-group --group-name aegong-sg --description "Agent Auditor Security Group"
 aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 22 --cidr 0.0.0.0/0

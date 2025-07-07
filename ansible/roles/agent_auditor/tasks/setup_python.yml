@@ -1,16 +1,19 @@
 ---
-- name: Install Python and Pip
-  apt:
-    name: "{{ python_packages }}"
+# tasks file for setting up Python for agent_auditor
+
+- name: Ensure Python system packages for venv are installed
+  ansible.builtin.package:
+    name:
+      - python3-pip
+      - python3-venv
     state: present
-    update_cache: yes
+  become: true
+  become_user: root
 
-- name: Ensure voice reports directory exists
-  file:
-    path: "{{ voice_output_dir }}"
-    state: directory
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: '0755'
-  when: voice_enabled
-
+- name: Create virtualenv and install Python dependencies
+  ansible.builtin.pip:
+    requirements: "{{ app_dir }}/requirements.txt"
+    virtualenv: "{{ app_dir }}/venv"
+    virtualenv_command: python3 -m venv
+  become: true
+  become_user: aegong

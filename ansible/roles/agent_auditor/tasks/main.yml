@@ -1,7 +1,28 @@
 ---
+# tasks file for agent_auditor
 
-- name: Include Python setup tasks
+- name: Include prerequisites task
+  include_tasks: prereq.yml
+
+- name: Create aegong user
+  user:
+    name: aegong
+    system: yes
+    shell: /usr/sbin/nologin
+
+- name: Set up Python environment
   include_tasks: setup_python.yml
+
+- name: Include setup tasks
+  include_tasks: setup_go.yml
+
+- name: Ensure application directory exists
+  file:
+    path: /opt/agent-auditor
+    state: directory
+    mode: '0755'
+    owner: aegong
+    group: aegong
 
 - name: Include application deployment tasks
   include_tasks: deploy_app.yml

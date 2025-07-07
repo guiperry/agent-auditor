@@ -25,3 +25,13 @@ voice_key_file_dest: "{{ app_dir }}/default.key"
 voice_key_pass_env_var: "AEGONG_KEY_PASS"
 voice_output_dir: "{{ app_dir }}/voice_reports"
 voice_default_voice: "alloy"
+
+# Firewall settings
+firewall_enabled: true
+
+# AWS settings (only used when running on EC2)
+# These can be overridden with extra-vars or group_vars
+vpc_id: ""  # This should be provided when running on AWS
+security_group_name: "aegong-sg"
+aws_region: "us-east-1"
+ssh_allowed_cidr: "0.0.0.0/0"  # WARNING: Restrict this in production

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -19,6 +20,7 @@ type VoiceInferenceConfig struct {
 	KeyPassEnv   string `json:"key_pass_env"`
 	OutputDir    string `json:"output_dir"`
 	DefaultVoice string `json:"default_voice"`
+	DefaultModel string `json:"default_model"`
 	WSURL        string `json:"ws_url"` // WebSocket URL for LiveKit
 }
 
@@ -40,7 +42,10 @@ func NewVoiceInferenceManager(configPath string) (*VoiceInferenceManager, error)
 		KeyPassEnv:   "AEGONG_KEY_PASS",
 		OutputDir:    "voice_reports",
 		DefaultVoice: "alloy",
-		WSURL:        "wss://your-livekit-instance.example.com",
+		DefaultModel: "gpt-4o-mini-tts",
+		// WSURL is not used directly as a command-line parameter
+		// It's set in the configuration for reference only
+		WSURL: "",
 	}
 
 	// Try to load configuration from file
@@ -66,23 +71,70 @@ func NewVoiceInferenceManager(configPath string) (*VoiceInferenceManager, error)
 	}
 
 	// Initialize key manager if enabled
-	if config.Enabled && config.KeyFile != "" {
-		vim.keyManager = keys.NewKeyManager(config.KeyFile)
+	if config.Enabled {
+		// Check if we're in development mode (using .env file)
+		// In development mode, we'll use environment variables directly
+		cerebrasKey := os.Getenv("CEREBRAS_API_KEY")
+		cartesiaKey := os.Getenv("CARTESIA_API_KEY")
+		livekitKey := os.Getenv("LIVEKIT_API_KEY")
+		livekitSecret := os.Getenv("LIVEKIT_API_SECRET")
 
-		// Try to initialize with passphrase from environment variable
-		if passphrase := os.Getenv(config.KeyPassEnv); passphrase != "" {
-			if err := vim.keyManager.Initialize(passphrase); err != nil {
-				log.Printf("Warning: Failed to initialize key manager: %v", err)
+		// If we have keys in environment variables, create an in-memory key manager
+		if cerebrasKey != "" || cartesiaKey != "" || livekitKey != "" || livekitSecret != "" {
+			log.Printf("Using API keys from environment variables (development mode)")
+
+			// Create a map of keys
+			keyMap := make(map[string]string)
+			if cerebrasKey != "" {
+				keyMap["cerebras"] = cerebrasKey
+			}
+			if cartesiaKey != "" {
+				keyMap["cartesia"] = cartesiaKey
+			}
+			if livekitKey != "" {
+				keyMap["LIVEKIT_API_KEY"] = livekitKey
+			}
+			if livekitSecret != "" {
+				keyMap["LIVEKIT_API_SECRET"] = livekitSecret
+			}
+
+			// Create a temporary key file
+			tempKeyFile := "temp_keys.json"
+			if err := keys.CreateKeyFile(tempKeyFile, "dummy", keyMap); err != nil {
+				log.Printf("Warning: Failed to create temporary key file: %v", err)
 			} else {
-				// Load keys
+				// Use the temporary key file
+				vim.keyManager = keys.NewKeyManager(tempKeyFile)
+				vim.keyManager.Initialize("dummy")
 				if err := vim.keyManager.LoadKeys(); err != nil {
-					log.Printf("Warning: Failed to load API keys: %v", err)
+					log.Printf("Warning: Failed to load API keys from temporary file: %v", err)
 				} else {
-					log.Printf("Successfully loaded API keys from %s", config.KeyFile)
+					log.Printf("Successfully loaded API keys from environment variables")
 				}
+				// Clean up the temporary file
+				os.Remove(tempKeyFile)
+			}
+		} else if config.KeyFile != "" {
+			// Try to use the encrypted key file (production mode)
+			vim.keyManager = keys.NewKeyManager(config.KeyFile)
+
+			// Try to initialize with passphrase from environment variable
+			if passphrase := os.Getenv(config.KeyPassEnv); passphrase != "" {
+				if err := vim.keyManager.Initialize(passphrase); err != nil {
+					log.Printf("Warning: Failed to initialize key manager: %v", err)
+				} else {
+					// Load keys
+					if err := vim.keyManager.LoadKeys(); err != nil {
+						log.Printf("Warning: Failed to load API keys: %v", err)
+					} else {
+						log.Printf("Successfully loaded API keys from %s", config.KeyFile)
+					}
+				}
+			} else {
+				log.Printf("Warning: Environment variable %s not set, API keys will not be available", config.KeyPassEnv)
 			}
 		} else {
-			log.Printf("Warning: Environment variable %s not set, API keys will not be available", config.KeyPassEnv)
+			log.Printf("Warning: No API keys available, voice inference will not work")
 		}
 	}
 
@@ -136,15 +188,21 @@ func (v *VoiceInferenceManager) runVoiceInference(reportPath string) (string, er
 		"--provider", v.config.Provider,
 	}
 
-	// Add WebSocket URL if configured
-	if v.config.WSURL != "" {
-		args = append(args, "--ws-url", v.config.WSURL)
-	}
-
 	// Add voice if specified
 	if v.config.DefaultVoice != "" {
 		args = append(args, "--voice", v.config.DefaultVoice)
 	}
+
+	// Add model if specified
+	if v.config.DefaultModel != "" {
+		args = append(args, "--model", v.config.DefaultModel)
+	}
+
+	// Add timeout parameter to prevent hanging
+	args = append(args, "--timeout", "60")
+
+	// Note: WebSocket URL is handled by the LiveKit environment variables
+	// and doesn't need to be passed as a command-line argument
 
 	// Add provider-specific API keys
 	switch v.config.Provider {
@@ -202,18 +260,18 @@ func (v *VoiceInferenceManager) runVoiceInference(reportPath string) (string, er
 
 	case "livekit":
 		// Get LiveKit API key
-		livekitKey, err := v.keyManager.GetKey("livekit_api_key")
+		livekitKey, err := v.keyManager.GetKey("LIVEKIT_API_KEY")
 		if err != nil {
 			return "", fmt.Errorf("failed to get LiveKit API key: %v", err)
 		}
-		args = append(args, "--api-key", livekitKey)
+		args = append(args, "--livekit-api-key", livekitKey)
 
 		// Get LiveKit API secret
-		livekitSecret, err := v.keyManager.GetKey("livekit_api_secret")
+		livekitSecret, err := v.keyManager.GetKey("LIVEKIT_API_SECRET")
 		if err != nil {
 			return "", fmt.Errorf("failed to get LiveKit API secret: %v", err)
 		}
-		args = append(args, "--api-secret", livekitSecret)
+		args = append(args, "--livekit-api-secret", livekitSecret)
 
 	default:
 		return "", fmt.Errorf("unsupported TTS provider: %s", v.config.Provider)
@@ -222,11 +280,19 @@ func (v *VoiceInferenceManager) runVoiceInference(reportPath string) (string, er
 	// Prepare the command
 	cmd := exec.Command("python3", args...)
 
+	// Log the command being executed
+	log.Printf("Running voice inference command: python3 %s", strings.Join(args, " "))
+
 	// Run the command
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		log.Printf("Voice inference script failed with error: %v", err)
+		log.Printf("Script output: %s", string(output))
 		return "", fmt.Errorf("voice inference script failed: %v, output: %s", err, output)
 	}
+
+	// Log the output
+	log.Printf("Voice inference script output: %s", string(output))
 
 	// Parse the output to get the audio file path
 	outputStr := string(output)

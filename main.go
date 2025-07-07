@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 )
 
 // Embed static web assets
@@ -113,6 +114,7 @@ type AuditReport struct {
 	RiskLevel       string                 `json:"risk_level"`
 	Recommendations []string               `json:"recommendations"`
 	AegongMessage   string                 `json:"aegong_message"`
+	Details         map[string]interface{} `json:"details,omitempty"`
 }
 
 type WebSocketMessage struct {
@@ -133,6 +135,14 @@ var (
 )
 
 func main() {
+	// Load .env file if it exists (for development environment)
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Info: No .env file found or error loading it: %v", err)
+		log.Printf("Info: Will use environment variables from the system")
+	} else {
+		log.Printf("Info: Loaded environment variables from .env file")
+	}
+
 	// Initialize AEGONG engine
 	engine = NewAEGONGEngine()
 	defer engine.auditLog.Close()
@@ -254,6 +264,32 @@ func auditHandler(w http.ResponseWriter, r *http.Request) {
 
 	filePath := filepath.Join("uploads", filename)
 
+	// First, validate if the file is actually an AI agent
+	validationResult, err := ValidateAgent(filePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Agent validation failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// If the file is not an agent, return an error
+	if !validationResult.IsAgent {
+		response := map[string]interface{}{
+			"error":      "Not an AI agent",
+			"message":    "The uploaded file does not appear to be an AI agent based on our validation criteria.",
+			"validation": validationResult,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// If confidence is too low, warn but continue
+	if validationResult.Confidence < 0.5 {
+		log.Printf("Warning: Low confidence (%f) that %s is an AI agent", 
+			validationResult.Confidence, filename)
+	}
+
 	// Run audit
 	report, err := engine.AuditAgent(filePath)
 	if err != nil {
@@ -263,6 +299,12 @@ func auditHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Add agent name from filename
 	report.AgentName = strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	// Add validation results to the report
+	if report.Details == nil {
+		report.Details = make(map[string]interface{})
+	}
+	report.Details["validation"] = validationResult
 
 	// Generate Aegong's message
 	report.AegongMessage = generateAegongMessage(report)
@@ -333,36 +375,63 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	hash := vars["hash"]
+	
+	log.Printf("Voice report requested for hash: %s", hash)
 
 	// Check if voice inference is enabled
 	if !voiceManager.IsEnabled() {
+		log.Printf("Voice inference is not enabled")
 		http.Error(w, "Voice inference is not enabled", http.StatusNotImplemented)
 		return
 	}
+	
+	log.Printf("Voice inference is enabled, using provider: %s", voiceManager.config.Provider)
 
 	// Check if we already have a voice report for this hash
 	audioPath, exists := voiceManager.GetAudioPathForReport(hash)
 	if !exists {
-		// If not, try to generate one
+		log.Printf("No cached voice report found for hash: %s, generating new one", hash)
+		
+		// Check if the report file exists
 		reportPath := filepath.Join("reports", fmt.Sprintf("report_%s.json", hash))
+		if _, err := os.Stat(reportPath); err != nil {
+			log.Printf("Report file not found: %s", reportPath)
+			http.Error(w, fmt.Sprintf("Report file not found: %v", err), http.StatusNotFound)
+			return
+		}
+		
+		log.Printf("Found report file: %s", reportPath)
+		
+		// Try to generate a new voice report
 		var err error
 		audioPath, err = voiceManager.GenerateVoiceReport(reportPath)
 		if err != nil {
+			log.Printf("Failed to generate voice report: %v", err)
 			http.Error(w, fmt.Sprintf("Failed to generate voice report: %v", err), http.StatusInternalServerError)
 			return
 		}
+		
+		log.Printf("Successfully generated voice report: %s", audioPath)
+	} else {
+		log.Printf("Found cached voice report: %s", audioPath)
 	}
 
 	// Check if the file exists
 	if _, err := os.Stat(audioPath); err != nil {
+		log.Printf("Voice report file not found: %s", audioPath)
 		http.Error(w, "Voice report not found", http.StatusNotFound)
 		return
 	}
+	
+	log.Printf("Voice report file exists: %s", audioPath)
 
 	// Return the audio file path
+	audioURL := fmt.Sprintf("/voice_reports/%s", filepath.Base(audioPath))
 	response := map[string]string{
-		"audio_url": fmt.Sprintf("/voice_reports/%s", filepath.Base(audioPath)),
+		"audio_url": audioURL,
 	}
+	
+	log.Printf("Returning audio URL: %s", audioURL)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

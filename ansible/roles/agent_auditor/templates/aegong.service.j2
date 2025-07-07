@@ -10,6 +10,7 @@ WorkingDirectory={{ app_dir }}
 ExecStart={{ app_dir }}/{{ binary_name }}
 Restart=on-failure
 RestartSec=10
+Environment="PATH={{ app_dir }}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PORT={{ app_port }}"
 {% if voice_enabled %}
 Environment="{{ voice_key_pass_env_var }}={{ vault_aegong_key_pass }}"
@@ -17,4 +18,3 @@ Environment="{{ voice_key_pass_env_var }}={{ vault_aegong_key_pass }}"
 
 [Install]
 WantedBy=multi-user.target
-

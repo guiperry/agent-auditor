@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEGONG - The AI Agent Auditor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            padding: 2rem 0;
+            position: relative;
+        }
+
+        .hero {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 80vh;
+            gap: 3rem;
+        }
+
+        .hero-content {
+            flex: 1;
+            max-width: 600px;
+        }
+
+        .hero-visual {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .robot-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .robot-avatar {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(45deg, #6a0dad, #9932cc, #4169e1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(106, 13, 173, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .robot-face {
+            width: 120px;
+            height: 80px;
+            background: #1a1a2e;
+            border-radius: 15px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .robot-eyes {
+            display: flex;
+            gap: 20px;
+        }
+
+        .robot-eye {
+            width: 20px;
+            height: 20px;
+            background: #00ffff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ffff;
+            animation: blink 3s ease-in-out infinite;
+        }
+
+        .floating-icons {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .icon {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(106, 13, 173, 0.5);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .icon:nth-child(1) { top: 10%; left: 10%; animation-delay: 0s; }
+        .icon:nth-child(2) { top: 20%; right: 10%; animation-delay: 0.5s; }
+        .icon:nth-child(3) { bottom: 20%; left: 15%; animation-delay: 1s; }
+        .icon:nth-child(4) { bottom: 10%; right: 15%; animation-delay: 1.5s; }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #6a0dad, #00ffff, #9932cc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a0a0a0;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .description {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            color: #e0e0e0;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 4rem 0;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(106, 13, 173, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(106, 13, 173, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 1rem;
+            background: linear-gradient(45deg, #6a0dad, #4169e1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .cta-button {
+            background: linear-gradient(45deg, #6a0dad, #4169e1);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(106, 13, 173, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(106, 13, 173, 0.5);
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(106, 13, 173, 0.5);
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            margin: 4rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: rgba(106, 13, 173, 0.8);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .upload-section.dragover {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.1);
+        }
+
+        .upload-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(45deg, #6a0dad, #4169e1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .upload-text {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #ffffff;
+        }
+
+        .upload-subtext {
+            color: #a0a0a0;
+            margin-bottom: 2rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-button {
+            background: linear-gradient(45deg, #6a0dad, #4169e1);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            font-size: 1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(106, 13, 173, 0.3);
+            margin: 0 0.5rem;
+        }
+
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(106, 13, 173, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes blink {
+            0%, 90%, 100% { opacity: 1; }
+            95% { opacity: 0.3; }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @media (max-width: 768px) {
+            .hero {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="hero">
+                <div class="hero-content">
+                    <div class="shield-icon">
+                        <img src="assets/shield.png" alt="Shield" style="width: 60px; height: 60px; margin-bottom: 1rem;">
+                    </div>
+                    <h1>AEGONG</h1>
+                    <p class="subtitle">The AI Agent Auditor</p>
+                    <p class="description">
+                        <strong>AI Evaluation & Governance Oversight Network Guardian v1.0</strong>
+                    </p>
+                    <p class="description">
+                        AEGONG is a Go-based application that provides a web interface for uploading AI agent binaries. 
+                        It performs comprehensive static and dynamic analysis to detect AI threats and ensure agent safety.
+                    </p>
+                    <button class="cta-button">Start Security Audit</button>
+                </div>
+                
+                <div class="hero-visual">
+                    <div class="robot-container">
+                        <div class="robot-avatar">
+                            <div class="robot-face">
+                                <div class="robot-eyes">
+                                    <div class="robot-eye"></div>
+                                    <div class="robot-eye"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="floating-icons">
+                            <div class="icon">🛡️</div>
+                            <div class="icon">🔍</div>
+                            <div class="icon">⚡</div>
+                            <div class="icon">🤖</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="upload-section" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <h2 class="upload-text">Upload AI Agent Binary</h2>
+            <p class="upload-subtext">Drag and drop your AI agent binary file here, or click to browse</p>
+            <input type="file" id="fileInput" class="file-input" accept=".exe,.bin,.so,.dylib">
+            <button class="upload-button" onclick="document.getElementById('fileInput').click()">Choose File</button>
+            <button class="upload-button" onclick="startAnalysis()">Start Analysis</button>
+            <div id="fileInfo" style="margin-top: 1rem; color: #00ffff;"></div>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <h3>Static Analysis</h3>
+                <p>Deep code inspection and vulnerability scanning of AI agent binaries</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Dynamic Analysis</h3>
+                <p>Real-time behavioral monitoring and threat detection during execution</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>AI Threat Detection</h3>
+                <p>Advanced algorithms to identify malicious patterns and anomalies</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Comprehensive Reports</h3>
+                <p>Detailed security assessments and compliance evaluations</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Simple interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            const robotEyes = document.querySelectorAll('.robot-eye');
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const fileInfo = document.getElementById('fileInfo');
+            
+            // Random eye glow effect
+            setInterval(() => {
+                robotEyes.forEach(eye => {
+                    if (Math.random() > 0.7) {
+                        eye.style.boxShadow = '0 0 20px #00ffff';
+                        setTimeout(() => {
+                            eye.style.boxShadow = '0 0 10px #00ffff';
+                        }, 200);
+                    }
+                });
+            }, 2000);
+
+            // File upload functionality
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            function handleFile(file) {
+                fileInfo.innerHTML = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            }
+        });
+
+        function startAnalysis() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            // Simulate analysis start
+            document.getElementById('fileInfo').innerHTML += '<br><span style="color: #00ffff;">🔍 Analysis started...</span>';
+            
+            // Here you would typically send the file to your Go backend
+            // For now, we'll just show a demo message
+            setTimeout(() => {
+                document.getElementById('fileInfo').innerHTML += '<br><span style="color: #00ff00;">✅ Static analysis complete</span>';
+            }, 2000);
+            
+            setTimeout(() => {
+                document.getElementById('fileInfo').innerHTML += '<br><span style="color: #00ff00;">✅ Dynamic analysis complete</span>';
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

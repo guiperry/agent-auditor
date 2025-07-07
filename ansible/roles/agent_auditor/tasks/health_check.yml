@@ -1,7 +1,7 @@
 ---
 - name: Perform health check on the application
   uri:
-    url: "http://localhost:8080/"
+    url: "http://localhost:{{ app_port }}/"
     method: GET
   register: health_check_result
   until: health_check_result.status == 200

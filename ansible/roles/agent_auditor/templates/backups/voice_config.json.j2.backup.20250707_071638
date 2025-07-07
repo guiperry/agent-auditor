@@ -1,0 +1,9 @@
+{
+    "enabled": {{ voice_enabled | to_json }},
+    "provider": "{{ voice_provider }}",
+    "key_file": "{{ voice_key_file_dest }}",
+    "key_pass_env": "{{ voice_key_pass_env_var }}",
+    "output_dir": "{{ voice_output_dir }}",
+    "default_voice": "{{ voice_default_voice }}",
+    "ws_url": "{{ voice_ws_url | default('wss://your-livekit-instance.example.com') }}"
+}

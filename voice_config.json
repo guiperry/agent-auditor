@@ -1,9 +1,10 @@
 {
     "enabled": true,
-    "provider": "cerebras",
+    "provider": "cartesia",
     "key_file": "default.key",
     "key_pass_env": "AEGONG_KEY_PASS",
     "output_dir": "voice_reports",
-    "default_voice": "alloy",
-    "ws_url": "wss://your-livekit-instance.example.com"
+    "default_voice": "c99d36f3-5ffd-4253-803a-535c1bc9c306",
+    "default_model": "sonic-2",
+    "ws_url": "wss://aegong-sa3ni1no.livekit.cloud"
 }

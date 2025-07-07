@@ -32,7 +32,8 @@
 - name: Install Python dependencies
   pip:
     requirements: "{{ app_dir }}/requirements.txt"
-    executable: pip3
+    virtualenv: "{{ app_dir }}/venv"
+    virtualenv_command: python3 -m venv
   become: true
   become_user: "{{ app_user }}"
 
