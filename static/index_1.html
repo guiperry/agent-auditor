@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegong - The Agent Auditor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="aegong-eye">👁️</div>
+                    <h1>AEGONG</h1>
+                    <p class="subtitle">The Agent Auditor</p>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Initializing...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section" id="uploadSection">
+                <div class="upload-card">
+                    <div class="upload-icon">🤖</div>
+                    <h2>Submit Agent for Inspection</h2>
+                    <p>Aegong awaits your digital minion for thorough security analysis...</p>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="fileInput" accept=".bin,.exe,.py,.js,.go" hidden>
+                        <div class="upload-content">
+                            <div class="upload-icon-large">📁</div>
+                            <p>Drop your agent binary here or <span class="upload-link">click to browse</span></p>
+                            <small>Supported formats: .wasm .bin, .exe, .py, .js, .go</small>
+                        </div>
+                    </div>
+                    
+                    <button id="uploadBtn" class="btn btn-primary" disabled>
+                        <span class="btn-text">Select File First</span>
+                        <div class="btn-loader" hidden>
+                            <div class="spinner"></div>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Analysis Section -->
+            <section class="analysis-section" id="analysisSection" hidden>
+                <div class="analysis-card">
+                    <div class="analysis-header">
+                        <h2>🔍 Aegong's Analysis in Progress</h2>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <p id="analysisStatus">Initializing security scan...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" hidden>
+                <div class="results-card">
+                    <div class="results-header">
+                        <h2>📊 Audit Report</h2>
+                        <div class="risk-badge" id="riskBadge">
+                            <span id="riskLevel">UNKNOWN</span>
+                        </div>
+                    </div>
+                    
+                    <div class="aegong-message" id="aegongMessage">
+                        <div class="message-avatar">🤖</div>
+                        <div class="message-content">
+                            <p id="aegongText">Aegong is preparing his report...</p>
+                            <div class="voice-controls" id="voiceControls" style="display: none;">
+                                <div class="voice-loading" id="voiceLoading" style="display: none;">
+                                    <div class="spinner"></div>
+                                    <span>Aegong is generating the voice report...</span>
+                                </div>
+                                <audio id="aegongVoice" controls style="width: 100%; margin-top: 10px; display: none;" preload="none">
+                                    <source id="aegongVoiceSource" src="" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                <button id="playVoiceBtn" class="btn btn-small" style="display: none;">
+                                    🔊 Listen to Aegong's Voice Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="report-tabs">
+                        <button class="tab-btn active" data-tab="overview">Overview</button>
+                        <button class="tab-btn" data-tab="threats">Threats</button>
+                        <button class="tab-btn" data-tab="shields">SHIELD</button>
+                        <button class="tab-btn" data-tab="recommendations">Recommendations</button>
+                    </div>
+
+                    <div class="tab-content">
+                        <div class="tab-pane active" id="overview">
+                            <div class="overview-grid">
+                                <div class="stat-card">
+                                    <div class="stat-icon">🎯</div>
+                                    <div class="stat-content">
+                                        <h3 id="agentName">Unknown Agent</h3>
+                                        <p>Agent Identity</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">⚠️</div>
+                                    <div class="stat-content">
+                                        <h3 id="threatCount">0</h3>
+                                        <p>Threats Detected</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">🛡️</div>
+                                    <div class="stat-content">
+                                        <h3 id="shieldScore">0/6</h3>
+                                        <p>SHIELD Modules Passed</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">📈</div>
+                                    <div class="stat-content">
+                                        <h3 id="riskScore">0%</h3>
+                                        <p>Overall Risk</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="threats">
+                            <div class="threats-list" id="threatsList">
+                                <!-- Threats will be populated here -->
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="shields">
+                            <div class="shields-grid" id="shieldsGrid">
+                                <!-- SHIELD results will be populated here -->
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="recommendations">
+                            <div class="recommendations-list" id="recommendationsList">
+                                <!-- Recommendations will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" id="newAnalysisBtn">
+                            🔄 Analyze Another Agent
+                        </button>
+                        <button class="btn btn-primary" id="downloadReportBtn">
+                            📥 Download Report
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports History -->
+            <section class="history-section">
+                <div class="history-card">
+                    <h2>📚 Aegong's Archive</h2>
+                    <p>Previous audits conducted by Aegong</p>
+                    <div class="history-list" id="historyList">
+                        <!-- History will be populated here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>🤖 Aegong - The Agent Auditor | Protecting the digital realm since 2024</p>
+            <p>AEGONG v1.0 - AI Agent Security Auditing Bot | <a href="/docs/" class="footer-link">Documentation</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/js/validation-service.js"></script>
+    <script src="/static/js/voice-integration-debug.js"></script>
+</body>
+</html>

@@ -1,3 +1,5 @@
+<a href="/" style="display:inline-block;margin-bottom:0.5rem;"><img src="/static/assets/icon.png" alt="Aegong Icon" style="width:5rem;vertical-align:middle;"></a>
+
 # Agent Auditor
 
 ## User Guides

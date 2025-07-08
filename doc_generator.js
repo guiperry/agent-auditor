@@ -327,7 +327,7 @@ function processMarkdownFiles() {
 
 // Generate sidebar content for Docsify
 function generateSidebar(docs) {
-  let sidebar = `# ${CONFIG.projectName}\n\n`;
+  let sidebar = `<a href="/" style="display:inline-block;margin-bottom:0.5rem;"><img src="/static/assets/icon.png" alt="Aegong Icon" style="width:5rem;vertical-align:middle;"></a>\n\n# ${CONFIG.projectName}\n\n`;
   
   // Group docs by category
   const categories = {};
@@ -411,9 +411,18 @@ function generateDocsifyConfig() {
       background-color: #0a0a0a;
       color: #e0e0e0;
     }
+      .sidebar:before {
+      content: '';
+      display: block;
+      width: 2rem;
+      height: 2rem;
+      margin: 1rem auto 1rem 0.5rem;
+    
+    }
     .sidebar {
       background-color: #1a1a2e;
       border-right: 1px solid #333;
+      padding-left: 5px;
     }
     .sidebar-toggle {
       background-color: rgba(26, 26, 46, 0.8);
