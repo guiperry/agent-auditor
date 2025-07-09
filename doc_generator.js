@@ -37,7 +37,15 @@ const CONFIG = {
     'development': 'Development',
     'api': 'API Reference',
     'security': 'Security',
-    'voice': 'Voice Integration'
+    'voice': 'Voice Integration',
+    'contribute': 'How to Contribute',
+    'legal': 'Legal Documents'
+  },
+  // Special files that should be processed differently
+  specialFiles: {
+    'CODE_OF_CONDUCT.md': 'legal',
+    'PRIVACY_POLICY.md': 'legal',
+    'TERMS_AND_CONDITIONS.md': 'legal'
   }
 };
 
@@ -125,6 +133,24 @@ function updateFileHash(filePath, hashes) {
 function updateContentHash(content, key, hashes) {
   hashes[key] = calculateStringHash(content);
   return hashes;
+}
+
+// Generate a consistent footer with legal links
+function generateLegalFooter(categories) {
+  let footer = `\n\n---\n\n<div class="footer-links">\n`;
+  
+  // Add legal documents if they exist
+  if (categories['legal'] && categories['legal'].length > 0) {
+    categories['legal'].forEach(doc => {
+      footer += `<a href="#/legal/${doc.filename}" class="footer-link">${doc.title}</a> | `;
+    });
+    // Remove the last separator
+    footer = footer.slice(0, -3);
+  }
+  
+  footer += `\n\n© ${new Date().getFullYear()} ${CONFIG.projectName}\n</div>\n`;
+  
+  return footer;
 }
 
 // Get all markdown files from a directory
@@ -264,9 +290,18 @@ function parseMarkdownFile(filePath, citations) {
   // Determine category based on content or filename
   let category = 'guides'; // Default category
   
-  // Check for KEY_MANAGEMENT.md specifically first
-  if (path.basename(filePath) === 'KEY_MANAGEMENT.md') {
+  // Check for special files first
+  const filename = path.basename(filePath);
+  if (CONFIG.specialFiles[filename]) {
+    category = CONFIG.specialFiles[filename];
+  }
+  // Check for other specific files
+  else if (filename === 'KEY_MANAGEMENT.md') {
     category = 'security';
+  } else if (filename === 'CONTRIBUTE.md') {
+    category = 'contribute';
+  } else if (filePath.toLowerCase().includes('contribute') || processedContent.toLowerCase().includes('how to contribute')) {
+    category = 'contribute';
   } else if (filePath.toLowerCase().includes('deploy') || processedContent.toLowerCase().includes('deployment')) {
     category = 'deployment';
   } else if (filePath.toLowerCase().includes('voice') || processedContent.toLowerCase().includes('tts')) {
@@ -338,8 +373,11 @@ function generateSidebar(docs) {
     categories[doc.category].push(doc);
   });
   
-  // Generate sidebar content
+  // Generate sidebar content for main categories (excluding legal)
   Object.keys(CONFIG.categories).forEach(category => {
+    // Skip the legal category - we'll add it at the bottom
+    if (category === 'legal') return;
+    
     if (categories[category] && categories[category].length > 0) {
       sidebar += `## ${CONFIG.categories[category]}\n\n`;
       
@@ -352,6 +390,19 @@ function generateSidebar(docs) {
     }
   });
   
+  // Add footer with legal links
+  sidebar += `<div class="sidebar-footer">\n\n---\n\n`;
+  
+  // Add legal documents if they exist
+  if (categories['legal'] && categories['legal'].length > 0) {
+    categories['legal'].forEach(doc => {
+      const link = `legal/${doc.filename}`;
+      sidebar += `* [${doc.title}](${link})\n`;
+    });
+  }
+  
+  sidebar += `\n© ${new Date().getFullYear()} ${CONFIG.projectName}\n</div>\n`;
+  
   return sidebar;
 }
 
@@ -361,6 +412,9 @@ function generateIndex(docs) {
   
   // Add description
   index += `Welcome to the ${CONFIG.projectName} documentation. This guide provides comprehensive information about using, deploying, and developing with Agent Auditor.\n\n`;
+  
+  // Add developer community message
+  index += `We're building an open source developer community around Agent Auditor. If you're interested in contributing, please check out our [How to Contribute](contribute/CONTRIBUTE.md) guide.\n\n`;
   
   // Add quick links
   index += `## Quick Links\n\n`;
@@ -374,8 +428,11 @@ function generateIndex(docs) {
     categories[doc.category].push(doc);
   });
   
-  // Generate quick links by category
+  // Generate quick links by category (excluding legal)
   Object.keys(CONFIG.categories).forEach(category => {
+    // Skip the legal category - we'll add it at the bottom
+    if (category === 'legal') return;
+    
     if (categories[category] && categories[category].length > 0) {
       index += `### ${CONFIG.categories[category]}\n\n`;
       
@@ -386,6 +443,9 @@ function generateIndex(docs) {
       index += '\n';
     }
   });
+  
+  // Add footer with legal links
+  index += generateLegalFooter(categories);
   
   return index;
 }
@@ -400,6 +460,17 @@ function generateDocsifyConfig() {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta charset="UTF-8">
   <title>${CONFIG.projectName} Documentation</title>
+  
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/assets/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/assets/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/assets/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/static/assets/favicon/site.webmanifest">
+  <link rel="shortcut icon" href="/static/assets/favicon/favicon.ico">
+  <meta name="theme-color" content="#6a0dad">
+  <meta name="msapplication-TileColor" content="#6a0dad">
+  <meta name="msapplication-config" content="/static/assets/favicon/browserconfig.xml">
+  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/themes/dark.css">
   <style>
     :root {
@@ -467,6 +538,29 @@ function generateDocsifyConfig() {
       background-color: #6fb5ff;
       color: #fff;
       text-decoration: none;
+    }
+    .sidebar-footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #333;
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+    .footer-links {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #333;
+      font-size: 0.85rem;
+      opacity: 0.8;
+      text-align: center;
+    }
+    .footer-link {
+      color: #4a9eff;
+      margin: 0 0.5rem;
+      text-decoration: none;
+    }
+    .footer-link:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
@@ -549,10 +643,24 @@ function createDocsifyStructure(docs, hashes) {
       categories[doc.category] = [];
       ensureDirectoryExists(path.join(CONFIG.docsifyDir, doc.category));
     }
+    categories[doc.category].push(doc);
+  });
+  
+  // Generate the legal footer once
+  const legalFooter = generateLegalFooter(categories);
+  
+  // Process each document and add the footer if it's not a legal document
+  docs.forEach(doc => {
+    let content = doc.content;
+    
+    // Add the legal footer to all non-legal documents
+    if (doc.category !== 'legal') {
+      content += legalFooter;
+    }
     
     // Write file to category directory
     const docPath = path.join(CONFIG.docsifyDir, doc.category, doc.filename);
-    if (writeFileIfChanged(docPath, doc.content, hashes)) {
+    if (writeFileIfChanged(docPath, content, hashes)) {
       filesChanged++;
     }
   });

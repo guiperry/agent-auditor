@@ -21,3 +21,18 @@
 
 * [TTS Providers Guide for Agent Auditor Voice Inference](voice/TTS_PROVIDERS.md)
 
+## How to Contribute
+
+* [How to Contribute to Agent Auditor](contribute/CONTRIBUTE.md)
+* [🤖 Aegong - The Agent Auditor](contribute/README.md)
+
+<div class="sidebar-footer">
+
+---
+
+* [Contributor Covenant Code of Conduct](legal/CODE_OF_CONDUCT.md)
+* [PRIVACY_POLICY.md](legal/PRIVACY_POLICY.md)
+* [TERMS AND CONDITIONS](legal/TERMS_AND_CONDITIONS.md)
+
+© 2025 Agent Auditor
+</div>

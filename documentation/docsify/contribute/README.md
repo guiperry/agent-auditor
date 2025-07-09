@@ -1,10 +1,10 @@
-# <img src="static/assets/icon.png" alt="Aegong Icon" style="width: 2rem; height: 2rem; vertical-align: middle;"> AEGONG - The Agent Auditor
+# 🤖 Aegong - The Agent Auditor
 
 **AEGONG (AI Evaluation & Governance Oversight Network Guardian) v1.0**
 
-A comprehensive security auditing system for AI agents that uses deterministic, rule-based analysis to detect the 9 ATFAA (AI Agent Threat Framework and Assessment) threat vectors without relying on ML models or inference engines. Our approach is based on the threat model proposed by Narajala, V. S., & Narayan, O. (2025). Securing Agentic AI: A Comprehensive Threat Model and Mitigation Framework for Generative AI Agents. ArXiv. https://arxiv.org/abs/2504.19956.
+Aegong is a Go-based application that provides a web interface for uploading AI agent binaries. It performs static and dynamic analysis to detect potential security threats and generates comprehensive reports with risk assessments and recommendations. A comprehensive security auditing system for AI agents that uses deterministic, rule-based analysis to detect the 9 ATFAA (AI Agent Threat Framework and Assessment) threat vectors without relying on ML models or inference engines. Our approach is based on the threat model proposed by Narajala and Narayan \cite{narajala2025securing}.
 
-## 🎭 Meet AEGONG  
+## 🎭 Meet Aegong
 
 AEGONG is a cutting-edge AI agent auditor designed to safeguard against potential threats posed by autonomous agents. Aegong is not your friendly neighborhood AI Agent Auditor - a vigilant digital guardian who speaks in third person and takes great pride in protecting the digital realm from rogue agents. With his watchful eye and sharp analytical mind, Aegong thoroughly inspects every agent binary that crosses his path, delivering detailed security reports with his signature wit and wisdom.
 
@@ -233,14 +233,10 @@ make deploy
 The deployment process automatically:
 - Detects the current git tag or commit SHA
 - Updates the application version in Ansible configuration
-- Starts your EC2 instance if it's stopped (cost-saving feature)
 - Deploys the application with proper version tracking
 - Configures the environment with appropriate settings
-- Stops your EC2 instance after deployment (cost-saving feature)
 
 For detailed deployment instructions, AWS configuration, and voice configuration synchronization, see the [Deployment Configuration Guide](documentation/docsify/deployment/DEPLOYMENT_CONFIG.md).
-
-For information on the EC2 cost management features, see the [EC2 Cost Management Guide](documentation/docsify/deployment/EC2_COST_MANAGEMENT.md).
 
 ### Command Line Usage
 
@@ -354,6 +350,11 @@ When voice reports are enabled, an additional audio file is generated containing
 
 ### Documentation Hub
 - [Documentation Home](documentation/docsify/README.md) - Main documentation hub
+- [How to Contribute](documentation/docsify/contribute/CONTRIBUTE.md) - Join our developer community
+
+## 👥 Contributing
+
+We welcome contributions from the community! If you're interested in helping improve Agent Auditor, please check out our [Contribution Guide](documentation/docsify/contribute/CONTRIBUTE.md) for information on how to get started.
 - [TTS Providers Guide](documentation/docsify/voice/TTS_PROVIDERS.md) - Detailed setup for voice providers
 - [Deployment Configuration](documentation/docsify/deployment/DEPLOYMENT_CONFIG.md) - Git-based version management and deployment automation
 - [Key Management](documentation/docsify/voice/KEY_MANAGEMENT.md) - API key management and security
@@ -493,8 +494,10 @@ For support, feature requests, or to report security vulnerabilities:
 
 **Built with ❤️ by the AEGONG development team**
 
-![Aegong Logo](static/assets/aegong.png) 
+---
 
-### REFERENCES
-- (https://github.com/VineethSaiNarajala/ATFAA-Framework)
-- (https://www.arxiv-vanity.com/papers/2504.19956/)
+<div class="footer-links">
+<a href="#/legal/CODE_OF_CONDUCT.md" class="footer-link">Contributor Covenant Code of Conduct</a> | <a href="#/legal/PRIVACY_POLICY.md" class="footer-link">PRIVACY_POLICY.md</a> | <a href="#/legal/TERMS_AND_CONDITIONS.md" class="footer-link">TERMS AND CONDITIONS</a>
+
+© 2025 Agent Auditor
+</div>

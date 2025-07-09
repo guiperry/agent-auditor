@@ -233,3 +233,11 @@ If you encounter issues with the key management system:
    - For CI/CD deployments, verify the ANSIBLE_VAULT_PASSWORD secret is correctly set in GitHub
 
 For additional help, run the application with verbose logging enabled.
+
+---
+
+<div class="footer-links">
+<a href="#/legal/CODE_OF_CONDUCT.md" class="footer-link">Contributor Covenant Code of Conduct</a> | <a href="#/legal/PRIVACY_POLICY.md" class="footer-link">PRIVACY_POLICY.md</a> | <a href="#/legal/TERMS_AND_CONDITIONS.md" class="footer-link">TERMS AND CONDITIONS</a>
+
+© 2025 Agent Auditor
+</div>

@@ -600,6 +600,63 @@ body {
     font-size: 0.8rem;
 }
 
+/* Alternative Options */
+.alternative-options {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.alternative-options h4 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #00d4ff;
+    text-align: center;
+}
+
+.option-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.option-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.option-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.option-logo {
+    max-width: 150px;
+    max-height: 80px;
+    margin-bottom: 1rem;
+}
+
+.option-card h5 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: #00d4ff;
+}
+
+.option-card p {
+    color: #ccc;
+    margin-bottom: 1.5rem;
+}
+
+.option-card .btn {
+    margin-top: 1rem;
+}
+
 /* Footer */
 .footer {
     text-align: center;

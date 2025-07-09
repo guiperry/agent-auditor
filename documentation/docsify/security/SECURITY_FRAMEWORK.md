@@ -71,3 +71,11 @@ These future enhancements will maintain our commitment to security-first design 
 
 1. Vineeth Sai Narajala, Om Narayan (2025). Securing Agentic AI: A Comprehensive Threat Model and Mitigation Framework for Generative AI Agents. <a href="https://arxiv.org/abs/2504.19956" target="_blank" class="citation-link">[View Paper]</a> - Comprehensive threat model and mitigation framework for generative AI agents.
 2. Additional resources on AI safety can be found in the [References](/references) page.
+
+---
+
+<div class="footer-links">
+<a href="#/legal/CODE_OF_CONDUCT.md" class="footer-link">Contributor Covenant Code of Conduct</a> | <a href="#/legal/PRIVACY_POLICY.md" class="footer-link">PRIVACY_POLICY.md</a> | <a href="#/legal/TERMS_AND_CONDITIONS.md" class="footer-link">TERMS AND CONDITIONS</a>
+
+© 2025 Agent Auditor
+</div>

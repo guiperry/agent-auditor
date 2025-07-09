@@ -1,10 +1,10 @@
-# <img src="static/assets/icon.png" alt="Aegong Icon" style="width: 2rem; height: 2rem; vertical-align: middle;"> AEGONG - The Agent Auditor
+# 🤖 Aegong - The Agent Auditor
 
 **AEGONG (AI Evaluation & Governance Oversight Network Guardian) v1.0**
 
-A comprehensive security auditing system for AI agents that uses deterministic, rule-based analysis to detect the 9 ATFAA (AI Agent Threat Framework and Assessment) threat vectors without relying on ML models or inference engines. Our approach is based on the threat model proposed by Narajala, V. S., & Narayan, O. (2025). Securing Agentic AI: A Comprehensive Threat Model and Mitigation Framework for Generative AI Agents. ArXiv. https://arxiv.org/abs/2504.19956.
+Aegong is a Go-based application that provides a web interface for uploading AI agent binaries. It performs static and dynamic analysis to detect potential security threats and generates comprehensive reports with risk assessments and recommendations. A comprehensive security auditing system for AI agents that uses deterministic, rule-based analysis to detect the 9 ATFAA (AI Agent Threat Framework and Assessment) threat vectors without relying on ML models or inference engines. Our approach is based on the threat model proposed by Narajala and Narayan \cite{narajala2025securing}.
 
-## 🎭 Meet AEGONG  
+## 🎭 Meet Aegong
 
 AEGONG is a cutting-edge AI agent auditor designed to safeguard against potential threats posed by autonomous agents. Aegong is not your friendly neighborhood AI Agent Auditor - a vigilant digital guardian who speaks in third person and takes great pride in protecting the digital realm from rogue agents. With his watchful eye and sharp analytical mind, Aegong thoroughly inspects every agent binary that crosses his path, delivering detailed security reports with his signature wit and wisdom.
 
@@ -492,9 +492,3 @@ For support, feature requests, or to report security vulnerabilities:
 *"Aegong stands vigilant, protecting the digital realm one audit at a time!"* 🤖👁️
 
 **Built with ❤️ by the AEGONG development team**
-
-![Aegong Logo](static/assets/aegong.png) 
-
-### REFERENCES
-- (https://github.com/VineethSaiNarajala/ATFAA-Framework)
-- (https://www.arxiv-vanity.com/papers/2504.19956/)

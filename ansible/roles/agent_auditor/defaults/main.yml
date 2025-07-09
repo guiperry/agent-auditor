@@ -35,3 +35,9 @@ vpc_id: ""  # This should be provided when running on AWS
 security_group_name: "aegong-sg"
 aws_region: "us-east-1"
 ssh_allowed_cidr: "0.0.0.0/0"  # WARNING: Restrict this in production
+
+# EC2 Instance Management Settings
+ec2_instance_tag_name: "AEGONG-Server"  # The Name tag of your EC2 instance
+ec2_wait_timeout: 300  # Timeout in seconds to wait for instance operations
+ec2_auto_start: true   # Whether to automatically start the instance before deployment
+ec2_auto_stop: true    # Whether to automatically stop the instance after deployment

@@ -2,6 +2,8 @@
 
 Welcome to the Agent Auditor documentation. This guide provides comprehensive information about using, deploying, and developing with Agent Auditor.
 
+We're building an open source developer community around Agent Auditor. If you're interested in contributing, please check out our [How to Contribute](contribute/CONTRIBUTE.md) guide.
+
 ## Quick Links
 
 ### User Guides
@@ -23,3 +25,17 @@ Welcome to the Agent Auditor documentation. This guide provides comprehensive in
 
 * [TTS Providers Guide for Agent Auditor Voice Inference](voice/TTS_PROVIDERS.md) - The Agent Auditor voice inference system now supports multiple Text-to-Speech (TTS) providers. This guide explains how to set up and use each provider.
 
+### How to Contribute
+
+* [How to Contribute to Agent Auditor](contribute/CONTRIBUTE.md) - Thank you for your interest in contributing to Agent Auditor! This guide will help you get started with contributing to our open source project.
+* [🤖 Aegong - The Agent Auditor](contribute/README.md) - **AEGONG (AI Evaluation & Governance Oversight Network Guardian) v1.0**
+
+
+
+---
+
+<div class="footer-links">
+<a href="#/legal/CODE_OF_CONDUCT.md" class="footer-link">Contributor Covenant Code of Conduct</a> | <a href="#/legal/PRIVACY_POLICY.md" class="footer-link">PRIVACY_POLICY.md</a> | <a href="#/legal/TERMS_AND_CONDITIONS.md" class="footer-link">TERMS AND CONDITIONS</a>
+
+© 2025 Agent Auditor
+</div>

@@ -107,3 +107,11 @@ The documentation system consists of:
 4. **documentation_embed.go**: Go helper for embedding documentation
 
 The system is integrated with the build process through the Makefile, ensuring documentation is always up-to-date with each build.
+
+---
+
+<div class="footer-links">
+<a href="#/legal/CODE_OF_CONDUCT.md" class="footer-link">Contributor Covenant Code of Conduct</a> | <a href="#/legal/PRIVACY_POLICY.md" class="footer-link">PRIVACY_POLICY.md</a> | <a href="#/legal/TERMS_AND_CONDITIONS.md" class="footer-link">TERMS AND CONDITIONS</a>
+
+© 2025 Agent Auditor
+</div>

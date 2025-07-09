@@ -214,7 +214,25 @@ class AegongInterface {
                 </p>
             </div>
             
-            <button id="returnToUploadBtn" class="btn primary-btn">Upload a Different File</button>
+            <div class="alternative-options">
+                <h4>Alternative Options</h4>
+                <div class="option-cards">
+                    <div class="option-card">
+                        <img src="/static/assets/Agentify_logo_3.png" alt="Agentify Logo" class="option-logo">
+                        <h5>Option A: Build a SHIELD Compliant Agent</h5>
+                        <p>Visit Agentify to build a SHIELD compliant agent the easy way...</p>
+                        <a href="https://ai-agentify.vercel.app" target="_blank" class="btn btn-secondary">Visit Agentify</a>
+                    </div>
+                    <div class="option-card">
+                        <img src="/static/assets/OpenSecurity.png" alt="OpenSecurity Logo" class="option-logo">
+                        <h5>Option B: Pentest Your Binary</h5>
+                        <p>Visit our friends at Open Security to pentest a mobile application binary for APK, iOS, and Windows...</p>
+                        <a href="https://opensecurity.in/#pentests" target="_blank" class="btn btn-secondary">Visit Open Security</a>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="returnToUploadBtn" class="btn btn-primary">Upload a Different File</button>
         `;
         
         // Replace analysis section with error
@@ -536,6 +554,9 @@ class AegongInterface {
                     formattedValue = value.toFixed(2);
                 } else if (typeof value === 'boolean') {
                     formattedValue = value ? '✅' : '❌';
+                } else if (typeof value === 'string' && (key.includes('hash') || key.includes('signature') || value.length > 30)) {
+                    // For hash values or long strings, add a special class
+                    return `<p class="hash-value"><strong>${formattedKey}:</strong> <span class="hash-text">${formattedValue}</span></p>`;
                 }
                 
                 return `<p><strong>${formattedKey}:</strong> ${formattedValue}</p>`;
@@ -627,6 +648,10 @@ class AegongInterface {
             document.getElementById('uploadSection').hidden = true;
             document.getElementById('analysisSection').hidden = true;
             document.getElementById('resultsSection').hidden = false;
+            
+            // Scroll to the results section
+            const resultsSection = document.getElementById('resultsSection');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (error) {
             console.error('Failed to load report:', error);
         }

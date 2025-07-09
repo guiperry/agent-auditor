@@ -257,3 +257,12 @@ For Agent Auditor, the implemented hybrid approach:
 5. ✅ Keep configuration files deployable (voice_config.json, default.key)
 6. ✅ Use individual file embedding for critical assets (index.html)
 7. ✅ Use directory embedding for other static assets
+
+
+---
+
+<div class="footer-links">
+<a href="#/legal/CODE_OF_CONDUCT.md" class="footer-link">Contributor Covenant Code of Conduct</a> | <a href="#/legal/PRIVACY_POLICY.md" class="footer-link">PRIVACY_POLICY.md</a> | <a href="#/legal/TERMS_AND_CONDITIONS.md" class="footer-link">TERMS AND CONDITIONS</a>
+
+© 2025 Agent Auditor
+</div>

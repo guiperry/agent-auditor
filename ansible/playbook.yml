@@ -1,6 +1,125 @@
 ---
+# EC2 Instance Management and Deployment Playbook
+# This playbook implements a cost-saving strategy by:
+# 1. Finding and starting the EC2 instance
+# 2. Deploying the application
+# 3. Ensuring the instance is stopped after deployment (success or failure)
+
+- name: Manage EC2 Instance Lifecycle
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - roles/agent_auditor/defaults/main.yml
+    - group_vars/all/main.yml
+  vars:
+    aws_region: "{{ aws_region }}"
+    instance_tag_name: "{{ ec2_instance_tag_name }}"
+    wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
+  
+  tasks:
+    - name: Skip EC2 management if auto-start is disabled
+      meta: end_play
+      when: not ec2_auto_start | bool
+      
+    - name: Find EC2 instance by tag
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "{{ instance_tag_name }}"
+      register: ec2_info
+      when: ec2_auto_start | bool
+      
+    - name: Verify instance was found
+      fail:
+        msg: "No EC2 instance found with tag Name:{{ instance_tag_name }}"
+      when: 
+        - ec2_auto_start | bool
+        - ec2_info.instances | length == 0
+      
+    - name: Set instance ID variable
+      set_fact:
+        instance_id: "{{ ec2_info.instances[0].instance_id }}"
+      when: ec2_auto_start | bool and ec2_info.instances | length > 0
+        
+    - name: Start EC2 instance
+      amazon.aws.ec2_instance:
+        instance_ids: "{{ instance_id }}"
+        region: "{{ aws_region }}"
+        state: running
+        wait: yes
+        wait_timeout: "{{ wait_for_instance_timeout }}"
+      register: started_instance
+      when: ec2_auto_start | bool and instance_id is defined
+      
+    - name: Get instance public IP
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        instance_ids: "{{ instance_id }}"
+      register: running_instance_info
+      when: ec2_auto_start | bool and instance_id is defined
+      
+    - name: Set instance IP variable
+      set_fact:
+        instance_ip: "{{ running_instance_info.instances[0].public_ip_address }}"
+      when: ec2_auto_start | bool and running_instance_info is defined
+        
+    - name: Wait for SSH to become available
+      wait_for:
+        host: "{{ instance_ip }}"
+        port: 22
+        delay: 10
+        timeout: 300
+      delegate_to: localhost
+      when: ec2_auto_start | bool and instance_ip is defined
+      
+    - name: Update inventory with dynamic IP
+      add_host:
+        name: "{{ instance_ip }}"
+        groups: aegong_dynamic
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: "~/AEGONG.pem"
+      when: ec2_auto_start | bool and instance_ip is defined
+        
+    - name: Display instance information
+      debug:
+        msg: "EC2 instance {{ instance_id }} is now running at {{ instance_ip }}"
+      when: ec2_auto_start | bool and instance_id is defined and instance_ip is defined
+
 - name: Deploy Agent Auditor Application
   hosts: aegong_servers
   become: true
   roles:
     - agent_auditor
+
+- name: Stop EC2 instance after deployment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - roles/agent_auditor/defaults/main.yml
+    - group_vars/all/main.yml
+  vars:
+    aws_region: "{{ aws_region }}"
+    instance_id: "{{ hostvars['localhost']['instance_id'] | default(None) }}"
+    wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
+  
+  tasks:
+    - name: Skip if auto-stop is disabled or instance_id is not defined
+      meta: end_play
+      when: not ec2_auto_stop | bool or instance_id is none
+      
+    - name: Stop EC2 instance
+      amazon.aws.ec2_instance:
+        instance_ids: "{{ instance_id }}"
+        region: "{{ aws_region }}"
+        state: stopped
+        wait: yes
+        wait_timeout: "{{ wait_for_instance_timeout }}"
+      register: stopped_instance
+      when: ec2_auto_stop | bool and instance_id is not none
+      
+    - name: Confirm instance is stopped
+      debug:
+        msg: "EC2 instance {{ instance_id }} has been stopped successfully"
+      when: ec2_auto_stop | bool and stopped_instance is defined
