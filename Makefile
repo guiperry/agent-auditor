@@ -35,9 +35,14 @@ help:
 all: build
 
 generate-docs:
-	@echo "🔄 Generating documentation from docs folder..."
-	@node doc_generator.js
-	@echo "✅ Documentation generated in documentation/ folder"
+	@echo "🔄 Checking for docs folder..."
+	@if [ -d "docs" ]; then \
+		echo "📂 docs folder found, generating documentation..."; \
+		node doc_generator.js && \
+		echo "✅ Documentation generated in documentation/ folder"; \
+	else \
+		echo "⚠️ docs folder not found, skipping documentation generation"; \
+	fi
 
 build: generate-docs
 	@echo "Building Aegong Agent Auditor with embedded assets..."

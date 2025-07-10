@@ -37,7 +37,9 @@ aws_region: "us-east-1"
 ssh_allowed_cidr: "0.0.0.0/0"  # WARNING: Restrict this in production
 
 # EC2 Instance Management Settings
-ec2_instance_tag_name: "AEGONG-Server"  # The Name tag of your EC2 instance
+ec2_instance_tag_name: "agent-auditor"  # The Name tag of your EC2 instance
 ec2_wait_timeout: 300  # Timeout in seconds to wait for instance operations
 ec2_auto_start: true   # Whether to automatically start the instance before deployment
 ec2_auto_stop: true    # Whether to automatically stop the instance after deployment
+ec2_ssh_user: "ubuntu"  # SSH user for connecting to the EC2 instance
+ec2_ssh_key_file: "~/.ssh/agent-auditor.pem"  # Path to the SSH private key file

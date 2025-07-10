@@ -27,10 +27,12 @@ The EC2 instance management features can be configured in the Ansible defaults f
 
 ```yaml
 # EC2 Instance Management Settings
-ec2_instance_tag_name: "AEGONG-Server"  # The Name tag of your EC2 instance
+ec2_instance_tag_name: "agent-auditor"  # The Name tag of your EC2 instance
 ec2_wait_timeout: 300                   # Timeout in seconds to wait for instance operations
 ec2_auto_start: true                    # Whether to automatically start the instance before deployment
 ec2_auto_stop: true                     # Whether to automatically stop the instance after deployment
+ec2_ssh_user: "ubuntu"                  # SSH user for connecting to the EC2 instance
+ec2_ssh_key_file: "~/.ssh/agent-auditor.pem"  # Path to the SSH private key file
 ```
 
 You can override these settings in your group variables or by using extra vars when running the playbook.
@@ -42,7 +44,7 @@ You can override these settings in your group variables or by using extra vars w
    ```bash
    ansible-galaxy collection install amazon.aws
    ```
-3. An existing EC2 instance with the tag "Name:AEGONG-Server" (or modify the tag in the configuration)
+3. An existing EC2 instance with the tag "Name:agent-auditor" (or modify the tag in the configuration)
 
 ## Usage
 
@@ -85,6 +87,7 @@ If you need to disable the automatic instance management:
 
 ## Security Considerations
 
-- The SSH key path is set to `~/AEGONG.pem` - update this to match your key location
+- Configure the SSH key path (`ec2_ssh_key_file`) to match your key location
 - Consider using AWS Secrets Manager or Ansible Vault for sensitive information
 - Restrict SSH access to specific IP addresses in your security group configuration
+- Use a dedicated IAM role with minimal permissions for the EC2 instance
