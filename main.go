@@ -142,6 +142,20 @@ func main() {
 	} else {
 		log.Printf("Info: Loaded environment variables from .env file")
 	}
+	
+	// Check if we're running in development mode
+	if os.Getenv("AEGONG_DEV_MODE") == "" {
+		// Check if we're running locally (not in production)
+		hostname, err := os.Hostname()
+		if err == nil && !strings.Contains(hostname, "aegong-prod") && !strings.Contains(hostname, "ec2") {
+			log.Printf("Info: Running on local machine, setting development mode")
+			os.Setenv("AEGONG_DEV_MODE", "1")
+		}
+	}
+	
+	if os.Getenv("AEGONG_DEV_MODE") == "1" {
+		log.Printf("Info: Running in development mode - some features may be limited")
+	}
 
 	// Initialize AEGONG engine
 	engine = NewAEGONGEngine()

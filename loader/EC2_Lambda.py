@@ -15,7 +15,7 @@ def lambda_handler(event, context):
     try:
         # CORS headers for browser requests
         headers = {
-            'Access-Control-Allow-Origin': '*',  # Change to your Netlify domain for security
+            'Access-Control-Allow-Origin': 'https://aegong.netlify.app/',  # Change to your Netlify domain for security
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
             'Content-Type': 'application/json'

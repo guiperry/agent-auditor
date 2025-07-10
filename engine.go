@@ -954,14 +954,32 @@ func (e *AEGONGEngine) createCgroupStructure(container *CustomContainer) string 
 		return ""
 	}
 
+	// Skip cgroup creation if running in development mode
+	if os.Getenv("AEGONG_DEV_MODE") == "1" {
+		log.Printf("Running in development mode, skipping cgroup creation")
+		return ""
+	}
+
 	// This is a simplified implementation - in production you would use a more robust approach
 	// Check if cgroups v2 is available
 	cgroupsV2Path := "/sys/fs/cgroup"
 	if _, err := os.Stat(cgroupsV2Path); err == nil {
+		// Check if aegong directory already exists
+		aegongPath := filepath.Join(cgroupsV2Path, "aegong")
+		if _, err := os.Stat(aegongPath); err != nil {
+			// Try to create the aegong directory
+			if err := os.MkdirAll(aegongPath, 0755); err != nil {
+				log.Printf("Failed to create aegong cgroup directory: %v", err)
+				log.Printf("Will continue without cgroup resource limits")
+				return ""
+			}
+		}
+		
 		// Create a cgroup for this container
-		cgroupPath := filepath.Join(cgroupsV2Path, "aegong", container.ID)
+		cgroupPath := filepath.Join(aegongPath, container.ID)
 		if err := os.MkdirAll(cgroupPath, 0755); err != nil {
 			log.Printf("Failed to create cgroup: %v", err)
+			log.Printf("Will continue without cgroup resource limits")
 			return ""
 		}
 
@@ -985,11 +1003,33 @@ func (e *AEGONGEngine) createCgroupStructure(container *CustomContainer) string 
 	// Fallback to cgroups v1
 	cgroupsV1Path := "/sys/fs/cgroup"
 	if _, err := os.Stat(cgroupsV1Path); err == nil {
+		// Check if memory/aegong directory exists
+		memAegongPath := filepath.Join(cgroupsV1Path, "memory", "aegong")
+		if _, err := os.Stat(memAegongPath); err != nil {
+			// Try to create it
+			if err := os.MkdirAll(memAegongPath, 0755); err != nil {
+				log.Printf("Failed to create memory/aegong directory: %v", err)
+				log.Printf("Will continue without memory limits")
+			}
+		}
+		
+		// Check if cpu/aegong directory exists
+		cpuAegongPath := filepath.Join(cgroupsV1Path, "cpu", "aegong")
+		if _, err := os.Stat(cpuAegongPath); err != nil {
+			// Try to create it
+			if err := os.MkdirAll(cpuAegongPath, 0755); err != nil {
+				log.Printf("Failed to create cpu/aegong directory: %v", err)
+				log.Printf("Will continue without CPU limits")
+			}
+		}
+		
 		// Create memory cgroup
 		memCgroupPath := filepath.Join(cgroupsV1Path, "memory", "aegong", container.ID)
+		memCgroupCreated := false
 		if err := os.MkdirAll(memCgroupPath, 0755); err != nil {
 			log.Printf("Failed to create memory cgroup: %v", err)
 		} else {
+			memCgroupCreated = true
 			// Set memory limit
 			memLimitPath := filepath.Join(memCgroupPath, "memory.limit_in_bytes")
 			if err := os.WriteFile(memLimitPath, []byte(fmt.Sprintf("%d", container.MemoryLimit)), 0644); err != nil {
@@ -999,26 +1039,31 @@ func (e *AEGONGEngine) createCgroupStructure(container *CustomContainer) string 
 
 		// Create CPU cgroup
 		cpuCgroupPath := filepath.Join(cgroupsV1Path, "cpu", "aegong", container.ID)
+		cpuCgroupCreated := false
 		if err := os.MkdirAll(cpuCgroupPath, 0755); err != nil {
 			log.Printf("Failed to create CPU cgroup: %v", err)
 		} else {
+			cpuCgroupCreated = true
 			// Set CPU limit
 			cpuQuota := int(container.CPULimit * 100000)
 			cpuQuotaPath := filepath.Join(cpuCgroupPath, "cpu.cfs_quota_us")
 			if err := os.WriteFile(cpuQuotaPath, []byte(fmt.Sprintf("%d", cpuQuota)), 0644); err != nil {
 				log.Printf("Failed to set CPU quota: %v", err)
 			}
-
+			
 			cpuPeriodPath := filepath.Join(cpuCgroupPath, "cpu.cfs_period_us")
 			if err := os.WriteFile(cpuPeriodPath, []byte("100000"), 0644); err != nil {
 				log.Printf("Failed to set CPU period: %v", err)
 			}
 		}
 
-		// NOTE: We don't add the process here - that's done after the process starts
-		return filepath.Join(cgroupsV1Path, "aegong", container.ID)
+		// Return a path only if at least one cgroup was created
+		if memCgroupCreated || cpuCgroupCreated {
+			return filepath.Join(cgroupsV1Path, "aegong", container.ID)
+		}
 	}
 
+	log.Printf("Cgroup creation failed or not supported, continuing without resource limits")
 	return ""
 }
 

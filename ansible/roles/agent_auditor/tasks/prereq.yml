@@ -7,3 +7,46 @@
     state: present
   become: true
   become_user: root
+
+- name: Check if cgroups v2 is in use
+  stat:
+    path: /sys/fs/cgroup/cgroup.controllers
+  register: cgroups_v2_check
+
+- name: Set cgroups version fact
+  set_fact:
+    using_cgroups_v2: "{{ cgroups_v2_check.stat.exists }}"
+
+- name: Create aegong cgroup directory for cgroups v2
+  block:
+    - file:
+        path: /sys/fs/cgroup/aegong
+        state: directory
+        mode: '0755'
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+  when: using_cgroups_v2
+  ignore_errors: true
+
+- name: Create aegong cgroup directories for cgroups v1
+  block:
+    - file:
+        path: "/sys/fs/cgroup/{{ item }}/aegong"
+        state: directory
+        mode: '0755'
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+      loop:
+        - memory
+        - cpu
+        - cpuacct
+  when: not using_cgroups_v2
+  ignore_errors: true
+
+- name: Add aegong user to systemd-journal group for cgroup access
+  block:
+    - user:
+        name: "{{ app_user }}"
+        groups: systemd-journal
+        append: yes
+  ignore_errors: true

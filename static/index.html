@@ -590,10 +590,13 @@
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 20px;
-            padding: 3rem;
+            padding: 4rem;
             text-align: center;
             backdrop-filter: blur(10px);
             position: relative;
+            max-width: 1000px;
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
         /* Add second AEGONG instance in analysis section */
@@ -620,12 +623,14 @@
 
         .progress-bar {
             width: 100%;
-            height: 10px;
+            height: 15px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
+            border-radius: 10px;
             margin: 2rem 0;
             overflow: hidden;
             position: relative;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(0, 212, 255, 0.3);
         }
 
         .progress-bar::after {
@@ -646,10 +651,74 @@
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(45deg, #00d4ff, #4ecdc4);
+            background: linear-gradient(45deg, #00d4ff, #4ecdc4, #00d4ff);
+            background-size: 200% 100%;
             width: 0%;
             transition: width 0.3s ease;
-            border-radius: 5px;
+            border-radius: 8px;
+            animation: gradient-shift 8s ease infinite;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.7);
+        }
+        
+        /* Enhanced Analysis Status Styling */
+        .analysis-status-container {
+            margin-top: 1.5rem;
+            text-align: center;
+            min-height: 120px; /* Ensure consistent height */
+        }
+        
+        .animated-status {
+            font-size: 3rem; /* 500% larger than default */
+            font-weight: 700;
+            margin: 1.5rem 0;
+            color: #00d4ff; /* Consistent blue color */
+            animation: pulse-text 2s ease-in-out infinite, glow-pulse 3s ease-in-out infinite;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            display: inline-block;
+            letter-spacing: 1px;
+            font-family: 'Orbitron', sans-serif; /* Use the futuristic font */
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+            border-top: 2px solid rgba(0, 212, 255, 0.3);
+            padding: 1rem 2rem;
+            max-width: 90%;
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+        }
+        
+        .animated-status::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.1) 0%, transparent 70%);
+            z-index: -1;
+            border-radius: 20px;
+            filter: blur(8px);
+        }
+        
+        @keyframes glow-pulse {
+            0%, 100% { text-shadow: 0 0 15px rgba(0, 212, 255, 0.5); }
+            50% { text-shadow: 0 0 25px rgba(0, 212, 255, 0.8); }
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes pulse-text {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .pulse-highlight {
+            animation: pulse-text 1s ease-in-out infinite !important;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.8) !important;
+            color: #4ecdc4 !important; /* Slightly different blue for emphasis */
         }
 
         /* Results Section */
@@ -1588,7 +1657,9 @@
                         <div class="progress-bar">
                             <div class="progress-fill" id="progressFill"></div>
                         </div>
-                        <p id="analysisStatus">Initializing security scan...</p>
+                        <div class="analysis-status-container">
+                            <div id="analysisStatus" class="animated-status">Initializing security scan...</div>
+                        </div>
                     </div>
                 </div>
             </section>

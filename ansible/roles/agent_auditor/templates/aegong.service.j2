@@ -16,5 +16,19 @@ Environment="PORT={{ app_port }}"
 Environment="{{ voice_key_pass_env_var }}={{ vault_aegong_key_pass }}"
 {% endif %}
 
+# Add capabilities for cgroup management
+AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_RESOURCE
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RESOURCE
+
+# Allow cgroup access
+DeviceAllow=/dev/null rw
+DeviceAllow=/dev/zero r
+DeviceAllow=/dev/full w
+DeviceAllow=/dev/random r
+DeviceAllow=/dev/urandom r
+
+# Ensure we can write to cgroups
+ReadWritePaths=/sys/fs/cgroup
+
 [Install]
 WantedBy=multi-user.target

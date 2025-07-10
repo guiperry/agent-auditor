@@ -342,15 +342,44 @@ When voice reports are enabled, an additional audio file is generated containing
 ### Environment Variables
 - `PORT` - Web server port (default: 8080)
 - `LOG_LEVEL` - Logging verbosity (default: INFO)
+- `AEGONG_DEV_MODE` - Set to "1" to run in development mode (skips cgroup creation)
+- `GO_TEST` - Set to "1" during tests to skip certain operations
 
 ### Configuration Files
 - `voice_config.json` - Voice report generation settings
+- `.env` - Local development environment variables
 
 ### File Locations
 - `uploads/` - Temporary agent binary storage
 - `reports/` - Generated audit reports
-- `voice_reports/` - Generated voice report audio files
-- `aegong_audit.log` - Immutable audit trail
+- `voice_reports/` - Generated voice reports
+
+## 🔧 Troubleshooting
+
+### Cgroup Permission Issues
+
+When running locally, you might encounter the following error:
+```
+Failed to create cgroup: mkdir /sys/fs/cgroup/aegong: permission denied
+```
+
+This occurs because the application tries to create control groups (cgroups) for resource isolation during agent analysis, which requires root privileges.
+
+#### Solutions:
+
+1. **Development Mode**:
+   - Set `AEGONG_DEV_MODE=1` in your `.env` file or as an environment variable
+   - This will disable cgroup creation and allow the application to run without root privileges
+   - Note: Resource limiting features will be disabled in this mode
+
+2. **Run with Elevated Privileges** (not recommended for development):
+   ```bash
+   sudo ./aegong
+   ```
+
+3. **Production Deployment**:
+   - The Ansible playbook automatically configures the necessary permissions on EC2 instances
+   - The systemd service is configured with the required capabilities for cgroup management
 
 ### Documentation Hub
 - [Documentation Home](documentation/docsify/README.md) - Main documentation hub

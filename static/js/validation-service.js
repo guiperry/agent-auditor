@@ -144,20 +144,37 @@ class AegongInterface {
 
         this.updateStatus('Analyzing...', 'analyzing');
         
-        // Simulate progress
+        // Scroll to the analysis section to show the progress bar
+        const analysisSection = document.getElementById('analysisSection');
+        analysisSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Start progress simulation
         this.simulateProgress();
 
         try {
+            // Start the actual API request
+            console.log(`Starting analysis for ${filename}...`);
+            const startTime = performance.now();
+            
             const response = await fetch(`/api/audit/${filename}`, {
                 method: 'POST'
             });
 
             const result = await response.json();
             
+            // Log the actual processing time for future reference
+            const processingTime = performance.now() - startTime;
+            console.log(`Analysis completed in ${Math.round(processingTime)}ms`);
+            
             if (response.ok) {
                 this.currentReport = result;
-                this.showResults(result);
-                this.loadHistory(); // Refresh history
+                
+                // Wait for the progress simulation to reach at least the "Finalizing report" step
+                // before showing results to ensure a smooth user experience
+                setTimeout(() => {
+                    this.showResults(result);
+                    this.loadHistory(); // Refresh history
+                }, 500); // Small delay to ensure progress animation looks natural
             } else {
                 // Check if this is a "not an agent" error
                 if (result.error === "Not an AI agent" && result.validation) {
@@ -179,74 +196,82 @@ class AegongInterface {
     }
     
     showNotAgentError(validation, filename) {
-        // Stop the progress animation
+        // Ensure the progress bar is at 100% and show validation failed
         document.getElementById('progressFill').style.width = '100%';
-        document.getElementById('analysisStatus').textContent = 'Validation failed';
+        const analysisStatus = document.getElementById('analysisStatus');
+        analysisStatus.textContent = 'Validation failed';
+        // Remove animation classes for error state
+        analysisStatus.classList.remove('pulse-highlight');
         
-        // Create error message
-        const errorSection = document.createElement('div');
-        errorSection.className = 'error-section section-card fade-in';
-        errorSection.innerHTML = `
-            <h3>⚠️ Not an AI Agent</h3>
-            <p>The uploaded file "${filename}" does not appear to be an AI agent based on our validation criteria.</p>
-            
-            <div class="validation-details">
-                <p><strong>File Type:</strong> ${validation.agent_type.toUpperCase()}</p>
-                <p><strong>Confidence:</strong> ${Math.round(validation.confidence * 100)}%</p>
+        // Create error message with a slight delay to ensure smooth transition
+        setTimeout(() => {
+            const errorSection = document.createElement('div');
+            errorSection.className = 'error-section section-card fade-in';
+            errorSection.innerHTML = `
+                <h3>⚠️ Not an AI Agent</h3>
+                <p>The uploaded file "${filename}" does not appear to be an AI agent based on our validation criteria.</p>
                 
-                <div class="validation-capabilities">
-                    <strong>Detected Capabilities:</strong>
-                    ${validation.capabilities.length > 0 ? 
-                        `<ul>${validation.capabilities.map(cap => `<li>${this.formatCapabilityName(cap)}</li>`).join('')}</ul>` : 
-                        '<p>No agent capabilities detected</p>'}
-                </div>
-                
-                <div class="validation-reasons">
-                    <strong>Validation Notes:</strong>
-                    <ul>
-                        ${validation.reasons.map(reason => `<li>${reason}</li>`).join('')}
-                    </ul>
-                </div>
-                
-                <p class="validation-explanation">
-                    <strong>Why this matters:</strong> Aegong can only analyze AI agents that have the minimum required capabilities:
-                    perception (input), action (output), and either reasoning (decision-making) or memory (state).
-                </p>
-            </div>
-            
-            <div class="alternative-options">
-                <h4>Alternative Options</h4>
-                <div class="option-cards">
-                    <div class="option-card">
-                        <img src="/static/assets/Agentify_logo_3.png" alt="Agentify Logo" class="option-logo">
-                        <h5>Option A: Build a SHIELD Compliant Agent</h5>
-                        <p>Visit Agentify to build a SHIELD compliant agent the easy way...</p>
-                        <a href="https://ai-agentify.vercel.app" target="_blank" class="btn btn-secondary">Visit Agentify</a>
+                <div class="validation-details">
+                    <p><strong>File Type:</strong> ${validation.agent_type.toUpperCase()}</p>
+                    <p><strong>Confidence:</strong> ${Math.round(validation.confidence * 100)}%</p>
+                    
+                    <div class="validation-capabilities">
+                        <strong>Detected Capabilities:</strong>
+                        ${validation.capabilities.length > 0 ? 
+                            `<ul>${validation.capabilities.map(cap => `<li>${this.formatCapabilityName(cap)}</li>`).join('')}</ul>` : 
+                            '<p>No agent capabilities detected</p>'}
                     </div>
-                    <div class="option-card">
-                        <img src="/static/assets/OpenSecurity.png" alt="OpenSecurity Logo" class="option-logo">
-                        <h5>Option B: Pentest Your Binary</h5>
-                        <p>Visit our friends at Open Security to pentest a mobile application binary for APK, iOS, and Windows...</p>
-                        <a href="https://opensecurity.in/#pentests" target="_blank" class="btn btn-secondary">Visit Open Security</a>
+                    
+                    <div class="validation-reasons">
+                        <strong>Validation Notes:</strong>
+                        <ul>
+                            ${validation.reasons.map(reason => `<li>${reason}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <p class="validation-explanation">
+                        <strong>Why this matters:</strong> Aegong can only analyze AI agents that have the minimum required capabilities:
+                        perception (input), action (output), and either reasoning (decision-making) or memory (state).
+                    </p>
+                </div>
+                
+                <div class="alternative-options">
+                    <h4>Alternative Options</h4>
+                    <div class="option-cards">
+                        <div class="option-card">
+                            <img src="/static/assets/Agentify_logo_3.png" alt="Agentify Logo" class="option-logo">
+                            <h5>Option A: Build a SHIELD Compliant Agent</h5>
+                            <p>Visit Agentify to build a SHIELD compliant agent the easy way...</p>
+                            <a href="https://ai-agentify.vercel.app" target="_blank" class="btn btn-secondary">Visit Agentify</a>
+                        </div>
+                        <div class="option-card">
+                            <img src="/static/assets/OpenSecurity.png" alt="OpenSecurity Logo" class="option-logo">
+                            <h5>Option B: Pentest Your Binary</h5>
+                            <p>Visit our friends at Open Security to pentest a mobile application binary for APK, iOS, and Windows...</p>
+                            <a href="https://opensecurity.in/#pentests" target="_blank" class="btn btn-secondary">Visit Open Security</a>
+                        </div>
                     </div>
                 </div>
-            </div>
+                
+                <button id="returnToUploadBtn" class="btn btn-primary">Upload a Different File</button>
+            `;
             
-            <button id="returnToUploadBtn" class="btn btn-primary">Upload a Different File</button>
-        `;
-        
-        // Replace analysis section with error
-        const analysisSection = document.getElementById('analysisSection');
-        analysisSection.innerHTML = '';
-        analysisSection.appendChild(errorSection);
-        
-        // Add button event listener
-        document.getElementById('returnToUploadBtn').addEventListener('click', () => {
-            this.resetInterface();
-        });
-        
-        // Update status
-        this.updateStatus('Validation failed', 'error');
+            // Replace analysis section with error
+            const analysisSection = document.getElementById('analysisSection');
+            analysisSection.innerHTML = '';
+            analysisSection.appendChild(errorSection);
+            
+            // Scroll to the analysis section to show the error message
+            analysisSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Add button event listener
+            document.getElementById('returnToUploadBtn').addEventListener('click', () => {
+                this.resetInterface();
+            });
+            
+            // Update status
+            this.updateStatus('Validation failed', 'error');
+        }, 500); // Small delay for smooth transition
     }
     
     showErrorMessage(message) {
@@ -287,28 +312,52 @@ class AegongInterface {
         const progressFill = document.getElementById('progressFill');
         const analysisStatus = document.getElementById('analysisStatus');
         
+        // Define steps with custom durations (in milliseconds)
         const steps = [
-            { progress: 5, text: 'Aegong is awakening his sensors...' },
-            { progress: 15, text: 'Validating agent capabilities...' },
-            { progress: 25, text: 'Scanning binary structure...' },
-            { progress: 40, text: 'Analyzing threat vectors...' },
-            { progress: 60, text: 'Running SHIELD validations...' },
-            { progress: 80, text: 'Calculating risk assessment...' },
-            { progress: 95, text: 'Preparing Aegong\'s verdict...' },
-            { progress: 100, text: 'Analysis complete!' }
+            { progress: 5, text: 'Aegong is awakening his sensors...', duration: 700 },
+            { progress: 15, text: 'Validating agent capabilities...', duration: 1200 },
+            { progress: 25, text: 'Scanning binary structure...', duration: 1500 },
+            { progress: 40, text: 'Analyzing threat vectors...', duration: 2000 },
+            { progress: 55, text: 'Running SHIELD validations...', duration: 2500 },
+            { progress: 70, text: 'Calculating risk assessment...', duration: 1800 },
+            { progress: 80, text: 'Preparing Aegong\'s verdict...', duration: 1500 },
+            { progress: 90, text: 'Finalizing report...', duration: 21000 }, // Extended step to account for the 21-second delay
+            { progress: 100, text: 'Analysis complete!', duration: 1000 }
         ];
 
         let currentStep = 0;
-        const interval = setInterval(() => {
+        
+        const processNextStep = () => {
             if (currentStep < steps.length) {
                 const step = steps[currentStep];
                 progressFill.style.width = `${step.progress}%`;
                 analysisStatus.textContent = step.text;
+                
+                // For the "Finalizing report" step, show additional progress indicators
+                if (step.text.includes('Finalizing report')) {
+                    let dots = '';
+                    let subInterval = setInterval(() => {
+                        dots = (dots.length >= 3) ? '' : dots + '.';
+                        analysisStatus.textContent = `Finalizing report${dots}`;
+                        
+                        // Add a subtle color shift effect by toggling classes
+                        analysisStatus.classList.toggle('pulse-highlight');
+                    }, 500);
+                    
+                    // Clear the sub-interval when this step is done
+                    setTimeout(() => {
+                        clearInterval(subInterval);
+                        analysisStatus.classList.remove('pulse-highlight');
+                    }, step.duration - 100);
+                }
+                
                 currentStep++;
-            } else {
-                clearInterval(interval);
+                setTimeout(processNextStep, step.duration);
             }
-        }, 700);
+        };
+        
+        // Start the progress simulation
+        processNextStep();
     }
 
     showResults(report) {
@@ -343,6 +392,9 @@ class AegongInterface {
 
         // Populate recommendations
         this.populateRecommendations(report.recommendations);
+        
+        // Scroll to the results section to show the threat report
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         // Update SHIELD score
         const shieldPassed = this.countPassedShields(report.shield_results);
@@ -649,9 +701,7 @@ class AegongInterface {
             document.getElementById('analysisSection').hidden = true;
             document.getElementById('resultsSection').hidden = false;
             
-            // Scroll to the results section
-            const resultsSection = document.getElementById('resultsSection');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Note: The showResults method already handles scrolling to the results section
         } catch (error) {
             console.error('Failed to load report:', error);
         }
