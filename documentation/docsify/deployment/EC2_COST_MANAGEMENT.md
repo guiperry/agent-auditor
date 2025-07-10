@@ -32,7 +32,7 @@ ec2_wait_timeout: 300                   # Timeout in seconds to wait for instanc
 ec2_auto_start: true                    # Whether to automatically start the instance before deployment
 ec2_auto_stop: true                     # Whether to automatically stop the instance after deployment
 ec2_ssh_user: "ubuntu"                  # SSH user for connecting to the EC2 instance
-ec2_ssh_key_file: "~/.ssh/agent-auditor.pem"  # Path to the SSH private key file
+ec2_ssh_key_file: "~/.ssh/AEGONG.pem"  # Path to the SSH private key file
 ```
 
 You can override these settings in your group variables or by using extra vars when running the playbook.
@@ -57,8 +57,23 @@ make deploy
 The deployment process will automatically:
 1. Start your EC2 instance if it's stopped
 2. Wait for the instance to be ready
-3. Deploy the application
+3. Deploy the application to the dynamic IP address of the instance
 4. Stop the instance after deployment
+
+### Deployment Behavior
+
+The playbook has two deployment strategies:
+
+1. **Dynamic IP Deployment** (when `ec2_auto_start: true`):
+   - The playbook starts the EC2 instance
+   - It retrieves the current public IP address
+   - It deploys to this dynamic IP address
+   - This ensures deployment works even if the instance's IP changes
+
+2. **Static IP Deployment** (when `ec2_auto_start: false`):
+   - The playbook uses the static inventory file (`ansible/inventory/hosts.ini`)
+   - It deploys to the IP addresses defined in the inventory
+   - Use this mode if you have a fixed IP or Elastic IP
 
 ## Troubleshooting
 

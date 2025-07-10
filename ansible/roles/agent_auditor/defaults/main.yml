@@ -42,4 +42,4 @@ ec2_wait_timeout: 300  # Timeout in seconds to wait for instance operations
 ec2_auto_start: true   # Whether to automatically start the instance before deployment
 ec2_auto_stop: true    # Whether to automatically stop the instance after deployment
 ec2_ssh_user: "ubuntu"  # SSH user for connecting to the EC2 instance
-ec2_ssh_key_file: "~/.ssh/agent-auditor.pem"  # Path to the SSH private key file
+ec2_ssh_key_file: "~/.ssh/AEGONG.pem"  # Path to the SSH private key file

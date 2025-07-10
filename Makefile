@@ -12,7 +12,7 @@ ANSIBLE_PLAYBOOK=$(ANSIBLE_DIR)/playbook.yml
 .SILENT:
 
 # Phony targets don't represent files.
-.PHONY: help all build run test keys test-keys deploy clean sync-voice-config version test-deploy generate-docs
+.PHONY: help all build run test keys test-keys deploy clean sync-voice-config version test-deploy generate-docs update-ec2-ip
 
 help:
 	@echo "Usage: make <target>"
@@ -29,6 +29,7 @@ help:
 	@echo "  generate-docs      Generate documentation from docs folder."
 	@echo ""
 	@echo "Deployment Targets:"
+	@echo "  update-ec2-ip      Update EC2 IP address in all configuration files."
 	@echo "  deploy             Deploy with auto-updated version from git tag/commit."
 	@echo "  test-deploy        Test the deploy version update process (dry run)."
 
@@ -115,11 +116,22 @@ deploy: build
 	echo "🚀 Deploying application with Ansible..."; \
 	if [ -n "$$ANSIBLE_VAULT_PASSWORD" ]; then \
 		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --vault-password-file <(echo "$$ANSIBLE_VAULT_PASSWORD"); \
+	elif [ -f .env ] && grep -q "ANSIBLE_VAULT_PASS" .env; then \
+		VAULT_PASS=$$(grep "ANSIBLE_VAULT_PASS" .env | cut -d'"' -f2); \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --vault-password-file <(echo "$$VAULT_PASS"); \
 	else \
 		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --ask-vault-pass; \
 	fi; \
 	echo "🔄 Restoring original defaults file..."; \
 	mv $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml.bak $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
+
+update-ec2-ip:
+	@echo "🔄 Updating EC2 IP address in configuration files..."
+	@if [ -n "$(IP)" ]; then \
+		./scripts/update_ec2_ip.sh "$(IP)"; \
+	else \
+		./scripts/update_ec2_ip.sh; \
+	fi
 
 clean:
 	@echo "Cleaning up build artifacts..."

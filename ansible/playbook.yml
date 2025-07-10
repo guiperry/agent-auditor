@@ -85,12 +85,40 @@
       debug:
         msg: "EC2 instance {{ instance_id }} is now running at {{ instance_ip }}"
       when: ec2_auto_start | bool and instance_id is defined and instance_ip is defined
+        
+    - name: Update configuration files with new IP address
+      shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ instance_ip }}"
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      when: ec2_auto_start | bool and instance_ip is defined
+      delegate_to: localhost
 
-- name: Deploy Agent Auditor Application
-  hosts: aegong_servers
+# Deploy to dynamic IP if auto-start is enabled
+- name: Deploy Agent Auditor Application (Dynamic IP)
+  hosts: aegong_dynamic
   become: true
+  gather_facts: true
   roles:
     - agent_auditor
+  vars:
+    deploy_condition: "{{ ec2_auto_start | bool and hostvars['localhost']['instance_ip'] is defined }}"
+  tasks:
+    - meta: end_play
+      when: not deploy_condition
+
+# Deploy to static inventory if auto-start is disabled
+# This play is now disabled as we're using the dynamic IP approach
+- name: Deploy Agent Auditor Application (Static IP)
+  hosts: aegong_servers
+  become: true
+  gather_facts: true
+  roles:
+    - agent_auditor
+  vars:
+    deploy_condition: false  # Always skip this play as we're using dynamic IP
+  tasks:
+    - meta: end_play
+      when: not deploy_condition
 
 - name: Stop EC2 instance after deployment
   hosts: localhost
