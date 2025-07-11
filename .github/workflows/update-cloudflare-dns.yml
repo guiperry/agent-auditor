@@ -43,10 +43,20 @@ jobs:
       - name: Install Ansible and required dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible sshpass
+          sudo apt-get install -y ansible sshpass python3-boto3 python3-botocore
           
-          # Install Python dependencies for Ansible AWS modules
-          pip install boto3 botocore
+          # Find the Ansible Python interpreter path
+          ANSIBLE_PYTHON_PATH=$(ansible --version | grep "python version" | awk '{print $4}')
+          echo "Ansible is using Python interpreter: $ANSIBLE_PYTHON_PATH"
+          
+          # Install Python dependencies in the Ansible Python environment
+          if [[ -n "$ANSIBLE_PYTHON_PATH" ]]; then
+            echo "Installing boto3 and botocore for Ansible's Python interpreter"
+            sudo -H $ANSIBLE_PYTHON_PATH -m pip install boto3 botocore
+          else
+            echo "Installing boto3 and botocore system-wide"
+            sudo pip3 install boto3 botocore
+          fi
 
       - name: Configure SSH
         env:
@@ -72,14 +82,16 @@ jobs:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
           FORCE_UPDATE: ${{ github.event.inputs.force_update }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          ANSIBLE_PYTHON_INTERPRETER: /usr/bin/python3
         run: |
           echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
           
           # Run only the EC2 management and IP update parts of the playbook
-          ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID"
+          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_INTERPRETER"
           
           # Display debug information
           echo "Using EC2 instance ID: $EC2_INSTANCE_ID"
+          echo "Using Python interpreter: $ANSIBLE_PYTHON_INTERPRETER"
           
           rm .vault_pass
 

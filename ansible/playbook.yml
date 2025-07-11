@@ -13,6 +13,7 @@
     - roles/agent_auditor/defaults/main.yml
     - group_vars/all/main.yml
   vars:
+    ansible_python_interpreter: /usr/bin/python3
     aws_region: "{{ aws_region }}"
     instance_tag_name: "{{ ec2_instance_tag_name }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
@@ -136,6 +137,7 @@
   roles:
     - agent_auditor
   vars:
+    ansible_python_interpreter: /usr/bin/python3
     deploy_condition: "{{ ec2_auto_start | bool and hostvars['localhost']['instance_ip'] is defined }}"
   tasks:
     - meta: end_play
@@ -163,6 +165,7 @@
     - roles/agent_auditor/defaults/main.yml
     - group_vars/all/main.yml
   vars:
+    ansible_python_interpreter: /usr/bin/python3
     aws_region: "{{ aws_region }}"
     instance_id: "{{ hostvars['localhost']['instance_id'] | default(None) }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
