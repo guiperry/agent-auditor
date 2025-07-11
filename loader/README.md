@@ -36,6 +36,24 @@ Set these environment variables in your Netlify dashboard (Site settings > Envir
 
 > **Important:** We use custom environment variable names to avoid Netlify's reserved environment variable restrictions. Netlify reserves standard AWS environment variable names (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for its own use.
 
+#### AWS SDK Configuration
+
+The application uses the AWS SDK for JavaScript to interact with EC2 instances. The SDK is configured in the Netlify Functions as follows:
+
+```javascript
+// Configure AWS SDK
+AWS.config.update({
+  region: keys.region,
+  accessKeyId: keys.accessKeyId,
+  secretAccessKey: keys.secretAccessKey
+});
+
+// Create EC2 service object
+const ec2 = new AWS.EC2();
+```
+
+This direct configuration approach is the most reliable way to set up the AWS SDK with credentials from environment variables.
+
 #### Troubleshooting AWS Credential Issues
 
 If you see the error: `"AWS was not able to validate the provided access credentials"`, follow these steps:

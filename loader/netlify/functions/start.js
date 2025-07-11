@@ -2,6 +2,22 @@
 const AWS = require('aws-sdk');
 const keys = require('../../config/keys');
 
+// Helper function to start an EC2 instance
+async function startEC2Instance(ec2, instanceId) {
+  const params = {
+    InstanceIds: [instanceId]
+  };
+  
+  try {
+    const result = await ec2.startInstances(params).promise();
+    console.log(`Starting instance ${instanceId}`, result);
+    return result;
+  } catch (error) {
+    console.error(`Error starting instance ${instanceId}:`, error);
+    throw error;
+  }
+}
+
 exports.handler = async function(event, context) {
   // Log environment info for debugging (without exposing full credentials)
   console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
@@ -38,14 +54,10 @@ exports.handler = async function(event, context) {
     };
   }
 
-  // Configure AWS SDK with our custom keys configuration
-  // Try a different approach for setting credentials
+  // Configure AWS SDK with direct credential assignment
+  // This is the simplest and most reliable approach
   AWS.config.update({
-    region: keys.region
-  });
-  
-  // Set credentials directly on config object
-  AWS.config.credentials = new AWS.Credentials({
+    region: keys.region,
     accessKeyId: keys.accessKeyId,
     secretAccessKey: keys.secretAccessKey
   });
@@ -53,14 +65,8 @@ exports.handler = async function(event, context) {
   // Log AWS SDK version for debugging
   console.log(`AWS SDK Version: ${AWS.VERSION}`);
   
-  // Create EC2 service object with explicit credentials
-  const ec2 = new AWS.EC2({
-    region: keys.region,
-    credentials: new AWS.Credentials({
-      accessKeyId: keys.accessKeyId,
-      secretAccessKey: keys.secretAccessKey
-    })
-  });
+  // Create EC2 service object
+  const ec2 = new AWS.EC2();
   const instanceId = keys.instanceId;
 
   // CORS headers for browser requests
@@ -136,9 +142,7 @@ exports.handler = async function(event, context) {
     }
     
     // Start the instance if it's not running
-    await ec2.startInstances({
-      InstanceIds: [instanceId]
-    }).promise();
+    await startEC2Instance(ec2, instanceId);
     
     console.log(`✅ Instance ${instanceId} start command sent`);
     
