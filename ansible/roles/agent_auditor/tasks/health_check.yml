@@ -96,3 +96,51 @@
   debug:
     msg: "✅ Aegong application is up and running."
   when: health_check_result.status == 200
+
+# Check and fix permissions for embedded files
+- name: Check if default.key exists
+  stat:
+    path: "{{ app_dir }}/default.key"
+  register: default_key_stat
+  become: true
+
+- name: Check default.key permissions
+  debug:
+    msg: 
+      - "default.key exists: {{ default_key_stat.stat.exists | default(false) }}"
+      - "default.key owner: {{ default_key_stat.stat.pw_name | default('N/A') }}"
+      - "default.key permissions: {{ default_key_stat.stat.mode | default('N/A') }}"
+  when: default_key_stat.stat.exists
+
+- name: Ensure default.key has correct permissions if it exists
+  file:
+    path: "{{ app_dir }}/default.key"
+    owner: root
+    group: root
+    mode: '0644'  # Readable by root
+  when: default_key_stat.stat.exists
+  become: true
+
+- name: Check if set_target_host.sh exists
+  stat:
+    path: "{{ app_dir }}/scripts/set_target_host.sh"
+  register: set_target_host_stat
+  become: true
+
+- name: Check set_target_host.sh permissions
+  debug:
+    msg: 
+      - "set_target_host.sh exists: {{ set_target_host_stat.stat.exists | default(false) }}"
+      - "set_target_host.sh owner: {{ set_target_host_stat.stat.pw_name | default('N/A') }}"
+      - "set_target_host.sh permissions: {{ set_target_host_stat.stat.mode | default('N/A') }}"
+      - "set_target_host.sh executable: {{ set_target_host_stat.stat.executable | default(false) }}"
+  when: set_target_host_stat.stat.exists
+
+- name: Ensure set_target_host.sh has correct permissions if it exists
+  file:
+    path: "{{ app_dir }}/scripts/set_target_host.sh"
+    owner: root
+    group: root
+    mode: '0755'  # Executable
+  when: set_target_host_stat.stat.exists
+  become: true

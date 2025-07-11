@@ -14,17 +14,39 @@
 #
 # This script is embedded in the agent-auditor binary and extracted at runtime
 
-# Get the public IP address using AWS metadata service
-PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+# Get the public IP address using AWS metadata service with a timeout
+PUBLIC_IP=$(curl -s --connect-timeout 2 http://169.254.169.254/latest/meta-data/public-ipv4)
 
-# If we couldn't get the public IP, try to get the local IP
+# If we couldn't get the public IP from AWS metadata, try using a public IP service
 if [ -z "$PUBLIC_IP" ]; then
+    # Try multiple services in case one fails
+    PUBLIC_IP=$(curl -s --connect-timeout 5 https://api.ipify.org)
+    
+    # If that fails, try another service
+    if [ -z "$PUBLIC_IP" ] || [[ "$PUBLIC_IP" == *"<"* ]]; then
+        PUBLIC_IP=$(curl -s --connect-timeout 5 https://ifconfig.me)
+    fi
+    
+    # If that fails too, try another service
+    if [ -z "$PUBLIC_IP" ] || [[ "$PUBLIC_IP" == *"<"* ]]; then
+        PUBLIC_IP=$(curl -s --connect-timeout 5 https://icanhazip.com)
+    fi
+fi
+
+# If we still couldn't get the public IP, try to get the local IP
+if [ -z "$PUBLIC_IP" ] || [[ "$PUBLIC_IP" == *"<"* ]]; then
     # Get the IP address of the default interface
-    PUBLIC_IP=$(ip route get 8.8.8.8 | awk '{print $7; exit}')
+    PUBLIC_IP=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7; exit}' 2>/dev/null)
 fi
 
 # If we still don't have an IP, default to localhost
-if [ -z "$PUBLIC_IP" ]; then
+if [ -z "$PUBLIC_IP" ] || [[ "$PUBLIC_IP" == *"<"* ]]; then
+    PUBLIC_IP="localhost"
+fi
+
+# Validate that the IP is in the correct format
+if ! [[ $PUBLIC_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Warning: IP address $PUBLIC_IP does not appear to be valid. Defaulting to localhost."
     PUBLIC_IP="localhost"
 fi
 

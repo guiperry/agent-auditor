@@ -56,8 +56,15 @@
     - uploads
     - reports
     - voice_reports
-    - scripts  # Keep the scripts directory for the embedded script
     - logs     # Add logs directory for audit logs
+
+- name: Create scripts directory with root ownership
+  file:
+    path: "{{ app_dir }}/scripts"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
 
 - name: Create empty audit log file with correct permissions
   file:
@@ -73,14 +80,6 @@
     state: directory
     mode: '0755'
     recurse: yes
-
-- name: Ensure scripts directory exists and has correct permissions
-  file:
-    path: "{{ app_dir }}/scripts"
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
 
 - name: Copy set_target_host.sh script to scripts directory
   copy:
@@ -140,6 +139,46 @@
     state: started
     enabled: true
     daemon_reload: true
+
+- name: Wait for the application to generate necessary files (10 seconds)
+  wait_for:
+    timeout: 10
+  delegate_to: localhost
+
+- name: Display service logs to check for file generation issues
+  shell: journalctl -u {{ binary_name }} -n 20
+  register: service_logs
+  changed_when: false
+
+- name: Show service logs
+  debug:
+    msg: "{{ service_logs.stdout_lines }}"
+
+- name: Check if default.key exists
+  stat:
+    path: "{{ app_dir }}/default.key"
+  register: default_key_stat
+
+- name: Ensure default.key has correct permissions if it exists
+  file:
+    path: "{{ app_dir }}/default.key"
+    owner: root
+    group: root
+    mode: '0644'  # Readable by root
+  when: default_key_stat.stat.exists
+
+- name: Check if set_target_host.sh exists
+  stat:
+    path: "{{ app_dir }}/scripts/set_target_host.sh"
+  register: set_target_host_stat
+
+- name: Ensure set_target_host.sh has correct permissions if it exists
+  file:
+    path: "{{ app_dir }}/scripts/set_target_host.sh"
+    owner: root
+    group: root
+    mode: '0755'  # Executable
+  when: set_target_host_stat.stat.exists
 
 - name: Add handler to restart service
   meta: flush_handlers
