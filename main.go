@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -217,6 +218,12 @@ func main() {
 	if port == "" {
 		port = "8084" // Default port that doesn't require root privileges
 	}
+
+	// Convert port to integer for proxy
+	appPort, _ := strconv.Atoi(port)
+
+	// Start proxy server if needed (to forward port 80 to our application port)
+	StartProxyIfNeeded(appPort)
 
 	fmt.Println("🤖 Aegong - The Agent Auditor is awakening...")
 	fmt.Println("📦 Using embedded static assets and documentation - single binary deployment!")

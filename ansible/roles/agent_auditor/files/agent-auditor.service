@@ -1,0 +1,20 @@
+[Unit]
+Description=Agent Auditor Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/agent-auditor
+ExecStart=/opt/agent-auditor/agent-auditor
+Restart=on-failure
+RestartSec=5
+Environment=PORT=8084
+Environment=PROXY_PORT=80
+Environment=AEGONG_DEV_MODE=0
+
+# Load environment variables from .env file if it exists
+EnvironmentFile=-/opt/agent-auditor/.env
+
+[Install]
+WantedBy=multi-user.target
