@@ -10,6 +10,27 @@
   become: true
   become_user: root
 
+- name: Check if aegong user exists
+  getent:
+    database: passwd
+    key: aegong
+  register: aegong_user_check
+  ignore_errors: true
+
+- name: Remove aegong user if it exists
+  user:
+    name: aegong
+    state: absent
+    remove: yes
+  when: aegong_user_check.ansible_facts.getent_passwd.aegong is defined
+  ignore_errors: true
+
+- name: Remove aegong group if it exists
+  group:
+    name: aegong
+    state: absent
+  ignore_errors: true
+
 - name: Check if cgroups v2 is in use
   stat:
     path: /sys/fs/cgroup/cgroup.controllers
@@ -19,7 +40,7 @@
   set_fact:
     using_cgroups_v2: "{{ cgroups_v2_check.stat.exists }}"
 
-- name: Create aegong cgroup directory for cgroups v2
+- name: Create root cgroup directory for cgroups v2
   block:
     - file:
         path: /sys/fs/cgroup/aegong
@@ -30,7 +51,7 @@
   when: using_cgroups_v2
   ignore_errors: true
 
-- name: Create aegong cgroup directories for cgroups v1
+- name: Create root cgroup directories for cgroups v1
   block:
     - file:
         path: "/sys/fs/cgroup/{{ item }}/aegong"
@@ -45,10 +66,4 @@
   when: not using_cgroups_v2
   ignore_errors: true
 
-- name: Add aegong user to systemd-journal group for cgroup access
-  block:
-    - user:
-        name: "{{ app_user }}"
-        groups: systemd-journal
-        append: yes
-  ignore_errors: true
+# No longer need to add aegong user to systemd-journal group as we're using root for everything

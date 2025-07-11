@@ -4,11 +4,8 @@
 - name: Include prerequisites task
   include_tasks: prereq.yml
 
-- name: Create aegong user
-  user:
-    name: aegong
-    system: yes
-    shell: /usr/sbin/nologin
+- name: Fix permissions for existing files
+  include_tasks: fix_permissions.yml
 
 - name: Set up Python environment
   include_tasks: setup_python.yml

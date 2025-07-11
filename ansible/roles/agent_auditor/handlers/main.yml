@@ -27,7 +27,7 @@
         path: "{{ app_dir }}/default.key"
         owner: root
         group: root
-        mode: '0644'  # Readable by root
+        mode: '0600'  # Restrictive permissions for key file
       when: default_key_stat.stat.exists
       become: true
 

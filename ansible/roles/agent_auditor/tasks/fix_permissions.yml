@@ -1,0 +1,130 @@
+---
+# Fix permissions for existing files
+
+- name: Check if application directory exists
+  stat:
+    path: "{{ app_dir }}"
+  register: app_dir_stat
+
+- name: Display application directory information
+  debug:
+    msg:
+      - "App directory exists: {{ app_dir_stat.stat.exists }}"
+      - "App directory is directory: {{ app_dir_stat.stat.isdir | default(false) }}"
+      - "App directory owner: {{ app_dir_stat.stat.pw_name | default('unknown') }}"
+      - "App directory permissions: {{ app_dir_stat.stat.mode | default('unknown') }}"
+  when: app_dir_stat.stat.exists
+
+- name: Fix application directory ownership and permissions
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+  when: app_dir_stat.stat.exists
+
+- name: Check if binary exists
+  stat:
+    path: "{{ app_dir }}/{{ binary_name }}"
+  register: binary_stat
+
+- name: Display binary information
+  debug:
+    msg:
+      - "Binary exists: {{ binary_stat.stat.exists }}"
+      - "Binary is executable: {{ binary_stat.stat.executable | default(false) }}"
+      - "Binary size: {{ binary_stat.stat.size | default(0) }} bytes"
+      - "Binary owner: {{ binary_stat.stat.pw_name | default('unknown') }}"
+  when: binary_stat.stat.exists
+
+- name: Fix binary ownership and permissions
+  file:
+    path: "{{ app_dir }}/{{ binary_name }}"
+    owner: root
+    group: root
+    mode: '0755'
+  when: binary_stat.stat.exists
+
+- name: Check if default.key exists
+  stat:
+    path: "{{ app_dir }}/default.key"
+  register: key_stat
+
+- name: Fix default.key ownership and permissions
+  file:
+    path: "{{ app_dir }}/default.key"
+    owner: root
+    group: root
+    mode: '0600'
+  when: key_stat.stat.exists
+
+- name: Check if voice_config.json exists
+  stat:
+    path: "{{ app_dir }}/voice_config.json"
+  register: voice_config_stat
+
+- name: Fix voice_config.json ownership and permissions
+  file:
+    path: "{{ app_dir }}/voice_config.json"
+    owner: root
+    group: root
+    mode: '0644'
+  when: voice_config_stat.stat.exists
+
+- name: Fix permissions for uploads directory
+  file:
+    path: "{{ app_dir }}/uploads"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+  ignore_errors: true
+
+- name: Fix permissions for reports directory
+  file:
+    path: "{{ app_dir }}/reports"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+  ignore_errors: true
+
+- name: Fix permissions for voice_reports directory
+  file:
+    path: "{{ app_dir }}/voice_reports"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+  ignore_errors: true
+
+- name: Fix permissions for logs directory
+  file:
+    path: "{{ app_dir }}/logs"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+    recurse: yes
+  ignore_errors: true
+
+- name: Fix permissions for .env file
+  file:
+    path: "{{ app_dir }}/.env"
+    owner: root
+    group: root
+    mode: '0644'
+  ignore_errors: true
+
+- name: Fix permissions for aegong_audit.log
+  file:
+    path: "{{ app_dir }}/aegong_audit.log"
+    owner: root
+    group: root
+    mode: '0644'
+  ignore_errors: true

@@ -1,40 +1,26 @@
 ---
-- name: Create application group
-  group:
-    name: "{{ app_group }}"
-    state: present
-
-- name: Create application user
-  user:
-    name: "{{ app_user }}"
-    group: "{{ app_group }}"
-    shell: /bin/bash
-    home: "{{ app_dir }}"
-    create_home: yes
-    state: present
-
 - name: Copy local binary to server
   copy:
     src: "../../../{{ binary_name }}" # Path relative to the playbook file
     dest: "{{ app_dir }}/{{ binary_name }}"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
     mode: '0755' # Make it executable
     
-- name: Ensure binary is executable by root
+- name: Ensure binary is executable
   file:
     path: "{{ app_dir }}/{{ binary_name }}"
     mode: '0755'
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
     attributes: "+x"
 
 - name: Copy requirements.txt to server
   copy:
     src: "../../../requirements.txt"
     dest: "{{ app_dir }}/requirements.txt"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
     mode: '0644'
 
 - name: Install Python dependencies
@@ -42,15 +28,13 @@
     requirements: "{{ app_dir }}/requirements.txt"
     virtualenv: "{{ app_dir }}/venv"
     virtualenv_command: python3 -m venv
-  become: true
-  become_user: "{{ app_user }}"
 
 - name: Create required directories
   file:
     path: "{{ app_dir }}/{{ item }}"
     state: directory
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
     mode: '0755'
   loop:
     - uploads
@@ -98,8 +82,8 @@
   copy:
     src: "{{ voice_key_file_src }}"
     dest: "{{ voice_key_file_dest }}"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
     mode: '0600' # Restrictive permissions
   when: voice_enabled
 
@@ -107,8 +91,8 @@
   template:
     src: voice_config.json.j2
     dest: "{{ app_dir }}/voice_config.json"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
     mode: '0644'
   when: voice_enabled
 
