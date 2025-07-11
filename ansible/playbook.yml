@@ -161,6 +161,9 @@
       raw: apt-get update && apt-get install -y python3 python3-pip
       when: "'not installed' in python3_check.stdout"
       
+    - name: Create symlink for expected Python path
+      raw: mkdir -p /opt/pipx/venvs/ansible-core/bin && ln -sf /usr/bin/python3 /opt/pipx/venvs/ansible-core/bin/python
+      
     - name: Set Python interpreter path
       set_fact:
         ansible_python_interpreter: /usr/bin/python3
