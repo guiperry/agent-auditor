@@ -11,8 +11,7 @@
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Role = ["admin", "editor"], Country = ["US"]}
-  force = false
+  force = true
 
 # Environment variables documentation
 # Set these in your Netlify dashboard under Site settings > Environment variables:
