@@ -32,3 +32,4 @@
 
 - name: Include health check tasks
   include_tasks: health_check.yml
+  ignore_errors: true

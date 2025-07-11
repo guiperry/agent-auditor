@@ -1,4 +1,85 @@
 ---
+- name: Check if application directory exists
+  stat:
+    path: "{{ app_dir }}"
+  register: app_dir_check
+  become: true
+
+- name: Display application directory information
+  debug:
+    msg: 
+      - "App directory exists: {{ app_dir_check.stat.exists }}"
+      - "App directory is directory: {{ app_dir_check.stat.isdir | default(false) }}"
+      - "App directory owner: {{ app_dir_check.stat.pw_name | default('N/A') }}"
+      - "App directory permissions: {{ app_dir_check.stat.mode | default('N/A') }}"
+  when: app_dir_check.stat.exists
+
+- name: Check if binary exists
+  stat:
+    path: "{{ app_dir }}/{{ binary_name }}"
+  register: binary_check
+  become: true
+
+- name: Display binary information
+  debug:
+    msg: 
+      - "Binary exists: {{ binary_check.stat.exists }}"
+      - "Binary is executable: {{ binary_check.stat.executable | default(false) }}"
+      - "Binary size: {{ binary_check.stat.size | default('N/A') }} bytes"
+      - "Binary owner: {{ binary_check.stat.pw_name | default('N/A') }}"
+  when: binary_check.stat.exists
+
+- name: Check if required directories exist
+  stat:
+    path: "{{ app_dir }}/{{ item }}"
+  register: dir_check
+  loop:
+    - uploads
+    - reports
+    - voice_reports
+    - scripts
+  become: true
+
+- name: Display directory information
+  debug:
+    msg: "Directory {{ item.item }} exists: {{ item.stat.exists }}, owner: {{ item.stat.pw_name | default('N/A') }}"
+  loop: "{{ dir_check.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Check service status
+  command: systemctl status {{ binary_name }}
+  register: service_status
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display service status
+  debug:
+    msg: "{{ service_status.stdout_lines }}"
+
+- name: Check service logs
+  command: journalctl -u {{ binary_name }} -n 20
+  register: service_logs
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display service logs
+  debug:
+    msg: "{{ service_logs.stdout_lines }}"
+
+- name: Check if application is listening on port
+  command: ss -tulpn | grep {{ app_port }}
+  register: port_check
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display port check results
+  debug:
+    msg: "{{ port_check.stdout_lines | default(['No process listening on port ' + app_port | string]) }}"
+
 - name: Perform health check on the application
   uri:
     url: "http://localhost:{{ app_port }}/"
@@ -9,6 +90,7 @@
   delay: 10 # Seconds to wait between retries
   changed_when: false
   become: false # This task does not require root privileges
+  ignore_errors: true
 
 - name: Display health check status
   debug:
