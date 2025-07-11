@@ -10,12 +10,13 @@
     - name: Wait for files to be generated (5 seconds)
       wait_for:
         timeout: 5
-      delegate_to: localhost
+      become: false
       
     - name: Check if default.key exists
       stat:
         path: "{{ app_dir }}/default.key"
       register: default_key_stat
+      become: true
     
     - name: Ensure default.key has correct permissions if it exists
       file:
@@ -24,11 +25,13 @@
         group: root
         mode: '0644'  # Readable by root
       when: default_key_stat.stat.exists
+      become: true
     
     - name: Check if set_target_host.sh exists
       stat:
         path: "{{ app_dir }}/scripts/set_target_host.sh"
       register: set_target_host_stat
+      become: true
     
     - name: Ensure set_target_host.sh has correct permissions if it exists
       file:
@@ -37,4 +40,5 @@
         group: root
         mode: '0755'  # Executable
       when: set_target_host_stat.stat.exists
+      become: true
 
