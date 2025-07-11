@@ -108,12 +108,47 @@ jobs:
           CLOUDFLARE_RECORD_NAME=${{ secrets.CLOUDFLARE_RECORD_NAME }}
           EOF
 
+      - name: Check if EC2 instance is already running and healthy
+        id: check-instance
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        run: |
+          # Check instance state
+          INSTANCE_STATE=$(aws ec2 describe-instances --instance-ids $EC2_INSTANCE_ID --query 'Reservations[0].Instances[0].State.Name' --output text)
+          echo "Instance state: $INSTANCE_STATE"
+          
+          # If instance is running, get its public IP
+          if [ "$INSTANCE_STATE" == "running" ]; then
+            PUBLIC_IP=$(aws ec2 describe-instances --instance-ids $EC2_INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+            echo "Instance is already running with IP: $PUBLIC_IP"
+            
+            # Check if application is responding
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$PUBLIC_IP:8084/ || echo "failed")
+            
+            if [ "$HTTP_STATUS" == "200" ]; then
+              echo "Application is healthy and responding with HTTP 200"
+              echo "instance_running=true" >> $GITHUB_OUTPUT
+              echo "instance_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+            else
+              echo "Application is not responding properly (HTTP status: $HTTP_STATUS)"
+              echo "instance_running=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Instance is not running (state: $INSTANCE_STATE)"
+            echo "instance_running=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Ansible playbook to start EC2 and update DNS
+        if: steps.check-instance.outputs.instance_running != 'true'
         env:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
+          echo "Instance needs to be started or is not healthy"
           echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
           
           # Create Ansible configuration to disable host key checking
@@ -132,20 +167,88 @@ jobs:
           fi
           
           # Run only the EC2 management and IP update parts of the playbook
-          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=true ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH"
+          CALLER_ID="${{ github.event.inputs.caller_id }}"
+          if [ -n "$CALLER_ID" ]; then
+            echo "Running with caller_id: $CALLER_ID"
+            PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=true ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH caller_id=$CALLER_ID keep_running=true"
+          else
+            echo "Running without caller_id"
+            PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=true ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH keep_running=true"
+          fi
           
           # Display debug information
           echo "Using EC2 instance ID: $EC2_INSTANCE_ID"
           
           rm .vault_pass
+          
+      - name: Use existing instance information
+        if: steps.check-instance.outputs.instance_running == 'true'
+        run: |
+          echo "Using already running instance with IP: ${{ steps.check-instance.outputs.instance_ip }}"
+          
+          # Update inventory file with the existing IP
+          mkdir -p ansible/inventory
+          cat > ansible/inventory/hosts.ini << EOF
+          [aegong_servers]
+          ${{ steps.check-instance.outputs.instance_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/AEGONG.pem
+          
+          # The group name '[aegong_servers]' is used by convention in this project.
+          # If you are using a specific SSH key for AWS, add 'ansible_ssh_private_key_file'
+          # and point it to your .pem file as shown above.
+          EOF
 
       - name: Get EC2 instance IP
         id: get-ip
         run: |
-          # Extract the IP address from the Ansible inventory file
-          IP_ADDRESS=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" ansible/inventory/hosts.ini | head -1 | awk '{print $1}')
+          if [ "${{ steps.check-instance.outputs.instance_running }}" == "true" ]; then
+            # Use the IP from the check-instance step
+            IP_ADDRESS="${{ steps.check-instance.outputs.instance_ip }}"
+          else
+            # Extract the IP address from the Ansible inventory file
+            IP_ADDRESS=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" ansible/inventory/hosts.ini | head -1 | awk '{print $1}')
+          fi
           echo "ip_address=$IP_ADDRESS" >> $GITHUB_OUTPUT
           echo "Instance IP: $IP_ADDRESS"
+
+      - name: Update Cloudflare DNS record
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_RECORD_NAME: ${{ secrets.CLOUDFLARE_RECORD_NAME }}
+          IP_ADDRESS: ${{ steps.get-ip.outputs.ip_address }}
+        run: |
+          echo "Updating Cloudflare DNS record for $CLOUDFLARE_RECORD_NAME to point to $IP_ADDRESS"
+          
+          # Get the DNS record ID
+          RECORD_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records?type=A&name=$CLOUDFLARE_RECORD_NAME" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" | grep -o '"id":"[^"]*' | cut -d'"' -f4)
+          
+          if [ -n "$RECORD_ID" ]; then
+              # Update existing record
+              UPDATE_RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records/$RECORD_ID" \
+                  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  --data "{\"type\":\"A\",\"name\":\"$CLOUDFLARE_RECORD_NAME\",\"content\":\"$IP_ADDRESS\",\"ttl\":60,\"proxied\":false}")
+              
+              if echo "$UPDATE_RESPONSE" | grep -q '"success":true'; then
+                  echo "Successfully updated Cloudflare DNS record to point to $IP_ADDRESS"
+              else
+                  echo "Failed to update Cloudflare DNS record: $UPDATE_RESPONSE"
+              fi
+          else
+              # Create new record
+              CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records" \
+                  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  --data "{\"type\":\"A\",\"name\":\"$CLOUDFLARE_RECORD_NAME\",\"content\":\"$IP_ADDRESS\",\"ttl\":60,\"proxied\":false}")
+              
+              if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
+                  echo "Successfully created Cloudflare DNS record pointing to $IP_ADDRESS"
+              else
+                  echo "Failed to create Cloudflare DNS record: $CREATE_RESPONSE"
+              fi
+          fi
 
       - name: Create status file with instance information
         run: |
