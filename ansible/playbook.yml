@@ -17,7 +17,8 @@
     aws_region: "{{ aws_region }}"
     instance_tag_name: "{{ ec2_instance_tag_name }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
-    force_update: "{{ force_update | default(false) }}"
+    # Define force_update with a static default value
+    force_update: "{{ lookup('env', 'FORCE_UPDATE') | default(false) }}"
   
   tasks:
     - name: Skip EC2 instance starting if not explicitly requested
@@ -212,7 +213,8 @@
     aws_region: "{{ aws_region }}"
     instance_id: "{{ hostvars['localhost']['instance_id'] | default(None) }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
-    force_update: "{{ force_update | default(false) }}"
+    # Use the same definition as in the first play
+    force_update: "{{ lookup('env', 'FORCE_UPDATE') | default(false) }}"
     # Check if caller_id is defined in extra vars
     has_caller_id: "{{ caller_id is defined }}"
     # Keep instance running if caller_id is defined (triggered from loader)
