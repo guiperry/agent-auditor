@@ -18,12 +18,13 @@
   ignore_errors: true
 
 - name: Remove aegong user if it exists
-  user:
-    name: aegong
-    state: absent
-    remove: yes
+  block:
+    - name: Force remove aegong user with userdel command
+      shell: userdel -f aegong || true
+      args:
+        warn: false
+      changed_when: true
   when: aegong_user_check.ansible_facts.getent_passwd.aegong is defined
-  ignore_errors: true
 
 - name: Remove aegong group if it exists
   group:
