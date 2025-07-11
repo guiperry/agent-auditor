@@ -48,6 +48,7 @@
     - uploads
     - reports
     - voice_reports
+    - scripts  # Keep the scripts directory for the embedded script
 
 - name: Copy encrypted key file to server
   copy:

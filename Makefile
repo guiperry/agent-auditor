@@ -39,7 +39,7 @@ generate-docs:
 	@echo "🔄 Checking for docs folder..."
 	@if [ -d "docs" ]; then \
 		echo "📂 docs folder found, generating documentation..."; \
-		node doc_generator.js && \
+		node scripts/doc_generator.js && \
 		echo "✅ Documentation generated in documentation/ folder"; \
 	else \
 		echo "⚠️ docs folder not found, skipping documentation generation"; \
@@ -76,7 +76,7 @@ test-keys:
 
 sync-voice-config:
 	@echo "Synchronizing voice_config.json with Ansible template..."
-	./sync_voice_config.sh
+	./scripts/sync_voice_config.sh
 
 version:
 	@echo "Current git version:"

@@ -115,7 +115,7 @@ We follow standard Go coding conventions:
 - Include examples where appropriate
 - Run the documentation generator to verify changes:
   ```bash
-  node doc_generator.js
+  node scripts/doc_generator.js
   ```
 
 ## Community

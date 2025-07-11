@@ -101,7 +101,7 @@ This is a statement that needs a citation [Citation not found: example2023paper]
 
 The documentation system consists of:
 
-1. **doc_generator.js**: JavaScript script that processes markdown files
+1. **scripts/doc_generator.js**: JavaScript script that processes markdown files
 2. **documentation/docsify/**: Docsify-compatible documentation
 3. **documentation/go-embed/**: Go-embeddable documentation
 4. **documentation_embed.go**: Go helper for embedding documentation

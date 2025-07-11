@@ -10,6 +10,8 @@ WorkingDirectory=/opt/agent-auditor
 # Stop Apache or Nginx if running (they might be using port 80)
 ExecStartPre=-/bin/bash -c "systemctl is-active apache2 && systemctl stop apache2 || true"
 ExecStartPre=-/bin/bash -c "systemctl is-active nginx && systemctl stop nginx || true"
+# Set TARGET_HOST to the machine's own IP address (script is extracted from the binary at runtime)
+ExecStartPre=/bin/bash -c 'cd /opt/agent-auditor && ./scripts/set_target_host.sh /opt/agent-auditor/.env'
 ExecStart=/opt/agent-auditor/agent-auditor
 Restart=on-failure
 RestartSec=5

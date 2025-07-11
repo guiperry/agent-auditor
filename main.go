@@ -36,6 +36,9 @@ var voiceInferencePy []byte
 //go:embed requirements.txt
 var requirementsTxt []byte
 
+//go:embed scripts/set_target_host.sh
+var setTargetHostScript []byte
+
 // Embed individual static files for direct access
 //
 //go:embed static/index.html
@@ -170,6 +173,18 @@ func main() {
 	// Write requirements.txt for reference
 	if err := writeEmbeddedFile(requirementsTxt, "requirements.txt"); err != nil {
 		log.Printf("Warning: Failed to write requirements.txt: %v", err)
+	}
+
+	// Write set_target_host.sh script and make it executable
+	scriptPath := "scripts/set_target_host.sh"
+	if err := os.MkdirAll(filepath.Dir(scriptPath), 0755); err != nil {
+		log.Printf("Warning: Failed to create scripts directory: %v", err)
+	}
+	if err := writeEmbeddedFile(setTargetHostScript, scriptPath); err != nil {
+		log.Printf("Warning: Failed to write set_target_host.sh: %v", err)
+	}
+	if err := os.Chmod(scriptPath, 0755); err != nil {
+		log.Printf("Warning: Failed to make set_target_host.sh executable: %v", err)
 	}
 
 	// Initialize voice inference manager

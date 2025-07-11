@@ -136,7 +136,7 @@ PORT=8084 ./aegong
 # Sync voice_config.json to Ansible template
 make sync-voice-config
 # OR
-./sync_voice_config.sh
+./scripts/sync_voice_config.sh
 ```
 
 ### 4. AWS Deployment
@@ -284,7 +284,7 @@ aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp -
 - `ansible/roles/agent_auditor/templates/voice_config.json.j2` - Enhanced voice configuration template
 
 ### **New Files**
-- `sync_voice_config.sh` - **NEW** - Voice config synchronization script
+- `scripts/sync_voice_config.sh` - **NEW** - Voice config synchronization script
 - `docs/DEPLOYMENT_UPDATES.md` - **NEW** - This documentation file
 
 ### **Key Makefile Changes**

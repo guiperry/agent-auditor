@@ -19,8 +19,8 @@ type ProxyServer struct {
 }
 
 // NewProxyServer creates a new proxy server instance
-func NewProxyServer(targetPort int, proxyPort int) (*ProxyServer, error) {
-	targetURL, err := url.Parse(fmt.Sprintf("http://localhost:%d", targetPort))
+func NewProxyServer(targetHost string, targetPort int, proxyPort int) (*ProxyServer, error) {
+	targetURL, err := url.Parse(fmt.Sprintf("http://%s:%d", targetHost, targetPort))
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +73,8 @@ func (p *ProxyServer) Start() error {
 	})
 
 	// Start the server
-	addr := fmt.Sprintf(":%d", p.port)
-	log.Printf("🔄 Proxy server starting on http://localhost%s -> %s", addr, p.targetURL.String())
+	addr := fmt.Sprintf("0.0.0.0:%d", p.port)
+	log.Printf("🔄 Proxy server starting on http://%s -> %s", addr, p.targetURL.String())
 	return http.ListenAndServe(addr, handler)
 }
 
@@ -120,8 +120,14 @@ func StartProxyIfNeeded(appPort int) {
 		return
 	}
 
+	// Get target host from environment or default to localhost
+	targetHost := os.Getenv("TARGET_HOST")
+	if targetHost == "" {
+		targetHost = "localhost"
+	}
+
 	// Create and start the proxy in a goroutine
-	proxy, err := NewProxyServer(appPort, proxyPort)
+	proxy, err := NewProxyServer(targetHost, appPort, proxyPort)
 	if err != nil {
 		log.Printf("Error creating proxy server: %v", err)
 		return

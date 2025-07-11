@@ -25,10 +25,10 @@ const { execSync } = require('child_process');
 
 // Configuration
 const CONFIG = {
-  sourceDir: path.join(__dirname, 'docs'),
-  outputDir: path.join(__dirname, 'documentation'),
-  docsifyDir: path.join(__dirname, 'documentation', 'docsify'),
-  hashFile: path.join(__dirname, 'documentation', '.doc_hashes.json'),
+  sourceDir: path.join(__dirname, '..', 'docs'),
+  outputDir: path.join(__dirname, '..', 'documentation'),
+  docsifyDir: path.join(__dirname, '..', 'documentation', 'docsify'),
+  hashFile: path.join(__dirname, '..', 'documentation', '.doc_hashes.json'),
   projectName: 'Agent Auditor',
   projectRepo: 'https://github.com/guiperry/agent-auditor',
   categories: {

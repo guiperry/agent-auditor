@@ -4,7 +4,7 @@
   "description": "Documentation system for Agent Auditor",
   "private": true,
   "scripts": {
-    "generate": "node ../doc_generator.js",
+    "generate": "node ../scripts/doc_generator.js",
     "postinstall": "echo 'Skipping patch-package'"
   },
   "dependencies": {
