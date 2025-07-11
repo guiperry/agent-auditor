@@ -40,13 +40,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Install Ansible and required Python packages
+      - name: Install Ansible and required dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible
+          sudo apt-get install -y ansible sshpass
           
           # Install Python dependencies for Ansible AWS modules
-          pip install boto3 botocore sshpass
+          pip install boto3 botocore
 
       - name: Configure SSH
         env:
@@ -76,6 +76,9 @@ jobs:
           
           # Run only the EC2 management and IP update parts of the playbook
           ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=true ec2_instance_id=$EC2_INSTANCE_ID"
+          
+          # Display debug information
+          echo "Using EC2 instance ID: $EC2_INSTANCE_ID"
           
           rm .vault_pass
 

@@ -26,10 +26,18 @@
       
     - name: Set instance ID from parameter or find by tag
       block:
+        - name: Debug EC2 instance ID parameter
+          debug:
+            msg: "EC2 instance ID parameter: '{{ ec2_instance_id | default('not provided') }}'"
+          
         - name: Use provided EC2 instance ID if available
           set_fact:
             instance_id: "{{ ec2_instance_id }}"
           when: ec2_instance_id is defined and ec2_instance_id != ""
+          
+        - name: Debug instance ID after parameter check
+          debug:
+            msg: "Instance ID after parameter check: '{{ instance_id | default('not set') }}'"
           
         - name: Find EC2 instance by tag if no instance ID provided
           amazon.aws.ec2_instance_info:
@@ -38,6 +46,11 @@
               "tag:Name": "{{ instance_tag_name }}"
           register: ec2_info
           when: instance_id is not defined
+          
+        - name: Debug EC2 info when searching by tag
+          debug:
+            msg: "EC2 info when searching by tag: {{ ec2_info | default('not searched') }}"
+          when: ec2_info is defined
           
         - name: Verify instance was found when searching by tag
           fail:
@@ -50,6 +63,10 @@
           set_fact:
             instance_id: "{{ ec2_info.instances[0].instance_id }}"
           when: instance_id is not defined and ec2_info.instances | length > 0
+          
+        - name: Debug final instance ID
+          debug:
+            msg: "Final instance ID: '{{ instance_id | default('not set') }}'"
       when: ec2_auto_start | bool or force_update | bool
       tags: [ec2_management]
         
