@@ -76,6 +76,26 @@
             msg: "Final instance ID: '{{ instance_id | default('not set') }}'"
       when: ec2_auto_start | bool or force_update | bool
       tags: [ec2_management]
+    - name: Check if instance is stopped
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        instance_ids: "{{ instance_id }}"
+      register: instance_status_check
+      when: instance_id is defined
+      tags: [ec2_management]
+      
+    - name: Debug instance status
+      debug:
+        msg: "Instance status: {{ instance_status_check.instances[0].state.name | default('unknown') }}"
+      when: instance_status_check is defined and instance_status_check.instances | length > 0
+      tags: [ec2_management]
+      
+    - name: Set force_start flag if instance is stopped
+      set_fact:
+        force_start: true
+      when: instance_status_check is defined and instance_status_check.instances | length > 0 and instance_status_check.instances[0].state.name == 'stopped'
+      tags: [ec2_management]
+      
     - name: Start EC2 instance
       amazon.aws.ec2_instance:
         instance_ids: "{{ instance_id }}"
@@ -84,7 +104,7 @@
         wait: true
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: started_instance
-      when: instance_id is defined and not skip_ec2_start
+      when: instance_id is defined and (not skip_ec2_start or force_start | default(false) | bool)
       tags: [ec2_management]
       
     - name: Get instance public IP
@@ -120,7 +140,7 @@
         delay: 10
         timeout: 300
       delegate_to: localhost
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined and (caller_id is defined)
+      when: instance_ip is defined and (force_start | default(false) | bool or started_instance is defined)
       tags: [ec2_management]
       
     - name: Update inventory with dynamic IP
@@ -133,6 +153,12 @@
         ansible_python_interpreter: "auto_silent"
       when: instance_ip is defined
       tags: [ec2_management]
+      
+    - name: Debug dynamic inventory
+      debug:
+        msg: "Added host to dynamic inventory: {{ instance_ip }} with user {{ ec2_ssh_user }} and key {{ ec2_ssh_key_file }}"
+      when: instance_ip is defined
+      tags: [ec2_management]
         
     - name: Debug SSH configuration
       debug:
@@ -140,13 +166,13 @@
           - "SSH User: {{ ec2_ssh_user }}"
           - "SSH Key File: {{ ec2_ssh_key_file }}"
           - "Target IP: {{ instance_ip }}"
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined and (caller_id is defined)
+      when: instance_ip is defined and (force_start | default(false) | bool or started_instance is defined)
       tags: [ec2_management]
         
     - name: Display instance information
       debug:
         msg: "EC2 instance {{ instance_id }} is now running at {{ instance_ip }}"
-      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and instance_ip is defined and (caller_id is defined or dns_only_update | default(false) | bool)
+      when: instance_id is defined and instance_ip is defined and (force_start | default(false) | bool or started_instance is defined)
       tags: [ec2_management, update_dns]
         
     - name: Check if instance has public IP
@@ -214,47 +240,32 @@
   tasks:
     - meta: end_play
       
-# Deploy to dynamic IP if triggered from loader
-- name: Deploy Agent Auditor Application (Dynamic IP)
+# This play is no longer needed as we've consolidated the deployment into a single play
+- name: Ensure Python is installed on remote server (Legacy Play - Skipped)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - meta: end_play
+
+# Deploy to dynamic IP for all deployments
+- name: Deploy Agent Auditor Application
   hosts: aegong_dynamic
   become: true
   gather_facts: false
   vars:
     ansible_python_interpreter: auto_silent
-    # Only run this play for loader-triggered deployments (with caller_id)
-    deploy_condition: "{{ hostvars['localhost']['caller_id'] is defined and hostvars['localhost']['instance_ip'] is defined }}"
   pre_tasks:
-    - meta: end_play
-      when: not deploy_condition
-      
     - name: Display deployment information
       debug:
-        msg: "Deploying to dynamic IP (loader-triggered deployment)"
-      
+        msg: "Deploying to dynamic IP ({{ inventory_hostname }})"
+        
     - name: Install Python for Ansible
       raw: test -e /usr/bin/python3 || (apt -y update && apt install -y python3-minimal)
       changed_when: false
       
     - name: Gather facts after Python installation
       setup:
-  roles:
-    - agent_auditor
-
-# Deploy to static inventory for regular deployments
-- name: Deploy Agent Auditor Application (Static IP)
-  hosts: aegong_servers
-  become: true
-  gather_facts: true
-  vars:
-    # Only run this play for regular deployments (no caller_id)
-    deploy_condition: "{{ not (hostvars['localhost']['caller_id'] is defined) }}"
-  pre_tasks:
-    - meta: end_play
-      when: not deploy_condition
-      
-    - name: Display deployment information
-      debug:
-        msg: "Deploying to static inventory (regular deployment)"
         
     - name: Check if we can connect to the host
       wait_for_connection:
@@ -266,14 +277,12 @@
       fail:
         msg: |
           Cannot connect to host {{ inventory_hostname }}. This could be because:
-          1. The IP address in inventory ({{ inventory_hostname }}) is incorrect
+          1. The IP address ({{ inventory_hostname }}) is incorrect
           2. SSH is not running on the target host
           3. Firewall rules are blocking the connection
           4. The EC2 instance is not running
           
-          The EC2 instance discovery found IP: {{ hostvars['localhost']['instance_ip'] | default('No IP discovered') }}
-          
-          Please update your inventory file or ensure the EC2 instance is running.
+          Please ensure the EC2 instance is running and accessible.
       when: connection_result is failed
   roles:
     - agent_auditor
