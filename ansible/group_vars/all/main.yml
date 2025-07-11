@@ -11,4 +11,4 @@ security_group_name: "launch-wizard-2"
 
 # For better security, restrict SSH access to a specific IP or range.
 # To find your IP, you can run: curl -s ifconfig.me
-ssh_allowed_cidr: "3.144.119.81/32" # Replace with your public IP address
+ssh_allowed_cidr: "3.21.105.227/32" # Replace with your public IP address

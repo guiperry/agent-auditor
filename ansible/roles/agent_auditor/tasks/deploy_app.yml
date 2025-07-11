@@ -122,7 +122,21 @@
   changed_when: false
   failed_when: false
 
-- name: Fix .env file if it contains HTML
+- name: Check if .env file has correct TARGET_HOST
+  shell: grep -q "TARGET_HOST={{ inventory_hostname }}" {{ app_dir }}/.env || echo "Incorrect TARGET_HOST"
+  register: target_host_check
+  changed_when: false
+  failed_when: false
+
+- name: Display TARGET_HOST check result
+  debug:
+    msg: 
+      - "HTML check result: {{ 'HTML found' if html_check.rc == 0 else 'No HTML found' }}"
+      - "TARGET_HOST check result: {{ 'Correct TARGET_HOST' if target_host_check.rc == 0 else 'Incorrect TARGET_HOST' }}"
+      - "Will fix .env file: {{ 'Yes' if html_check.rc == 0 or target_host_check.rc != 0 else 'No' }}"
+
+- name: Fix .env file if it contains HTML or has incorrect TARGET_HOST
+  when: html_check.rc == 0 or target_host_check.rc != 0
   block:
     - name: Create clean .env file
       copy:
@@ -135,18 +149,15 @@
         owner: root
         group: root
         mode: '0644'
-      when: html_check.rc == 0
   
     - name: Display fixed .env file
       command: cat {{ app_dir }}/.env
       register: fixed_env_file
       changed_when: false
-      when: html_check.rc == 0
   
     - name: Show fixed .env file content
       debug:
         msg: "{{ fixed_env_file.stdout_lines }}"
-      when: html_check.rc == 0
 
 - name: Copy encrypted key file to server
   copy:
