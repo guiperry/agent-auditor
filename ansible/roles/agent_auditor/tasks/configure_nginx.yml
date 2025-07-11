@@ -1,0 +1,30 @@
+---
+# Configure NGINX as a reverse proxy for the agent-auditor application
+
+- name: Create NGINX configuration for agent-auditor
+  template:
+    src: nginx_agent_auditor.conf.j2
+    dest: /etc/nginx/sites-available/agent-auditor.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart nginx
+
+- name: Enable NGINX site configuration
+  file:
+    src: /etc/nginx/sites-available/agent-auditor.conf
+    dest: /etc/nginx/sites-enabled/agent-auditor.conf
+    state: link
+  notify: restart nginx
+
+- name: Remove default NGINX site if it exists
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Ensure NGINX is enabled and started
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes

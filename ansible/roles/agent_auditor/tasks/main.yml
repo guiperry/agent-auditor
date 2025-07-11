@@ -21,11 +21,14 @@
     path: /opt/agent-auditor
     state: directory
     mode: '0755'
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
+    owner: root
+    group: root
 
 - name: Include application deployment tasks
   include_tasks: deploy_app.yml
+
+- name: Configure NGINX as reverse proxy
+  include_tasks: configure_nginx.yml
 
 - name: Include firewall configuration tasks
   include_tasks: configure_firewall.yml

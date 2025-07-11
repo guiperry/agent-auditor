@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"strconv"
 )
 
 // ProxyServer represents a simple HTTP proxy server
@@ -94,48 +92,9 @@ func isPortInUse(port int) bool {
 	return false
 }
 
-// StartProxyIfNeeded starts the proxy server if needed
+// StartProxyIfNeeded is now a no-op since we're using NGINX as a reverse proxy
 func StartProxyIfNeeded(appPort int) {
-	// Check if we should start the proxy (only if we're not already running as root)
-	if os.Getuid() != 0 {
-		log.Printf("Info: Not running as root, proxy to port 80 will not be started")
-		log.Printf("Info: To enable proxy, run with sudo or as root")
-		return
-	}
-
-	// Get proxy port from environment or default to 80
-	proxyPortStr := os.Getenv("PROXY_PORT")
-	proxyPort := 80 // Default to standard HTTP port
-	if proxyPortStr != "" {
-		if port, err := strconv.Atoi(proxyPortStr); err == nil {
-			proxyPort = port
-		}
-	}
-
-	// Check if the port is already in use
-	if isPortInUse(proxyPort) {
-		log.Printf("Warning: Port %d is already in use. This could be another web server like Apache or Nginx.", proxyPort)
-		log.Printf("Info: To use the built-in proxy, stop any other services using port %d", proxyPort)
-		log.Printf("Info: You can also set PROXY_PORT environment variable to use a different port")
-		return
-	}
-
-	// Get target host from environment or default to localhost
-	targetHost := os.Getenv("TARGET_HOST")
-	if targetHost == "" {
-		targetHost = "localhost"
-	}
-
-	// Create and start the proxy in a goroutine
-	proxy, err := NewProxyServer(targetHost, appPort, proxyPort)
-	if err != nil {
-		log.Printf("Error creating proxy server: %v", err)
-		return
-	}
-
-	go func() {
-		if err := proxy.Start(); err != nil {
-			log.Printf("Proxy server error: %v", err)
-		}
-	}()
+	log.Printf("Info: Built-in proxy is disabled. Using external NGINX as reverse proxy.")
+	log.Printf("Info: Application is configured to listen on port %d", appPort)
+	log.Printf("Info: NGINX should be configured to proxy requests to this port")
 }

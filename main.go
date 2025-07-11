@@ -36,8 +36,7 @@ var voiceInferencePy []byte
 //go:embed requirements.txt
 var requirementsTxt []byte
 
-//go:embed scripts/set_target_host.sh
-var setTargetHostScript []byte
+// set_target_host.sh is no longer embedded as it's handled by Ansible
 
 // Embed individual static files for direct access
 //
@@ -175,17 +174,8 @@ func main() {
 		log.Printf("Warning: Failed to write requirements.txt: %v", err)
 	}
 
-	// Write set_target_host.sh script and make it executable
-	scriptPath := "scripts/set_target_host.sh"
-	if err := os.MkdirAll(filepath.Dir(scriptPath), 0755); err != nil {
-		log.Printf("Warning: Failed to create scripts directory: %v", err)
-	}
-	if err := writeEmbeddedFile(setTargetHostScript, scriptPath); err != nil {
-		log.Printf("Warning: Failed to write set_target_host.sh: %v", err)
-	}
-	if err := os.Chmod(scriptPath, 0755); err != nil {
-		log.Printf("Warning: Failed to make set_target_host.sh executable: %v", err)
-	}
+	// set_target_host.sh is no longer needed as it's handled by Ansible
+	log.Printf("Info: Target host configuration is now handled by Ansible")
 
 	// Initialize voice inference manager
 	var err error

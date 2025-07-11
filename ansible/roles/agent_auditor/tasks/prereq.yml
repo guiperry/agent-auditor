@@ -1,9 +1,11 @@
 ---
 # tasks file for agent_auditor prerequisites
 
-- name: Ensure ACL package is installed for unprivileged become
+- name: Ensure required packages are installed
   ansible.builtin.package:
-    name: acl
+    name:
+      - acl
+      - nginx
     state: present
   become: true
   become_user: root
@@ -23,8 +25,8 @@
         path: /sys/fs/cgroup/aegong
         state: directory
         mode: '0755'
-        owner: "{{ app_user }}"
-        group: "{{ app_group }}"
+        owner: root
+        group: root
   when: using_cgroups_v2
   ignore_errors: true
 
@@ -34,8 +36,8 @@
         path: "/sys/fs/cgroup/{{ item }}/aegong"
         state: directory
         mode: '0755'
-        owner: "{{ app_user }}"
-        group: "{{ app_group }}"
+        owner: root
+        group: root
       loop:
         - memory
         - cpu
