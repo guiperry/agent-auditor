@@ -444,8 +444,8 @@
                 countdown--;
                 if (countdown <= 0) {
                     clearInterval(countdownInterval);
-                    // Force redirect after countdown reaches zero
-                    window.location.href = data.redirectUrl;
+                    // Force redirect after countdown reaches zero using our smart redirect function
+                    redirectToInstance(data.redirectUrl);
                 } else {
                     updateCountdown();
                 }
@@ -490,7 +490,7 @@
             `;
         }
 
-        // Redirect to instance
+        // Redirect to instance with fallback options
         function redirectToInstance(url) {
             if (url && url !== 'null') {
                 // Add a loading message
@@ -521,15 +521,63 @@
                 `;
                 document.body.appendChild(loadingOverlay);
                 
-                // Redirect after a short delay for better UX
-                setTimeout(() => {
-                    // Use direct navigation instead of opening in a new tab
-                    window.location.href = url;
-                }, 500);
+                // Extract the IP address from the URL
+                const ipAddress = url.replace('http://', '').split(':')[0];
+                
+                // Try to ping the server first to see if it's responding
+                checkServerAvailability(ipAddress)
+                    .then(availabilityResult => {
+                        // Redirect after a short delay for better UX
+                        setTimeout(() => {
+                            if (availabilityResult.available) {
+                                // Use the URL that responded
+                                window.location.href = availabilityResult.workingUrl;
+                            } else {
+                                // If neither URL worked, try the fallback
+                                window.location.href = 'https://agent-auditor.fly.dev/';
+                            }
+                        }, 500);
+                    });
             } else {
                 // Fallback to direct URL if the provided one is not valid
                 window.location.href = 'https://agent-auditor.fly.dev/';
             }
+        }
+        
+        // Check if the server is available on different ports
+        async function checkServerAvailability(ipAddress) {
+            // Create URLs to try
+            const urls = [
+                `http://${ipAddress}`,       // Try standard HTTP port
+                `http://${ipAddress}:8084`   // Try application port directly
+            ];
+            
+            // Try each URL with a fetch request
+            for (const url of urls) {
+                try {
+                    // Use a timeout to avoid waiting too long
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000);
+                    
+                    const response = await fetch(url, { 
+                        method: 'HEAD',
+                        mode: 'no-cors', // This allows us to check if the server responds without CORS issues
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    // If we get here, the server responded
+                    console.log(`Server available at ${url}`);
+                    return { available: true, workingUrl: url };
+                } catch (error) {
+                    console.log(`Server not available at ${url}: ${error.message}`);
+                    // Continue to the next URL
+                }
+            }
+            
+            // If we get here, none of the URLs worked
+            return { available: false };
         }
 
         // Copy IP to clipboard

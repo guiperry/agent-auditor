@@ -44,7 +44,7 @@ async function checkWorkflowStatus(token, owner, repo, runId) {
             conclusion: 'success',
             isReady: true,
             publicIp: statusResponse.data.ip_address,
-            redirectUrl: `http://${statusResponse.data.ip_address}:80`,
+            redirectUrl: `http://${statusResponse.data.ip_address}`,
             timestamp: statusResponse.data.timestamp
           };
         }
