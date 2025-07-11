@@ -69,17 +69,17 @@
   when: voice_enabled
 
 - name: Copy systemd service file
-  copy:
-    src: agent-auditor.service
-    dest: /etc/systemd/system/agent-auditor.service
+  template:
+    src: aegong.service.j2
+    dest: "/etc/systemd/system/{{ binary_name }}.service"
     owner: root
     group: root
     mode: '0644'
-  notify: Restart agent-auditor service
+  notify: Restart {{ binary_name }} service
 
-- name: Enable and start the agent-auditor service
+- name: Enable and start the {{ binary_name }} service
   systemd:
-    name: agent-auditor
+    name: "{{ binary_name }}"
     state: started
     enabled: true
     daemon_reload: true

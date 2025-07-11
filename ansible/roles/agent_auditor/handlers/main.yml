@@ -1,11 +1,6 @@
 ---
-- name: Restart agent-auditor service
+- name: Restart {{ binary_name }} service
   systemd:
-    name: agent-auditor
-    state: restarted
-
-- name: Restart aegong service
-  systemd:
-    name: aegong
+    name: "{{ binary_name }}"
     state: restarted
 
