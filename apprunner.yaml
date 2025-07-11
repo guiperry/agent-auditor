@@ -1,0 +1,55 @@
+version: 1.0
+runtime: golang
+build:
+  commands:
+    build:
+      - go mod download
+      - go build -o agent-auditor
+  env:
+    - name: GO_VERSION
+      value: "1.22.0"
+
+run:
+  runtime-version: 1.22.0
+  command: ./agent-auditor
+  network:
+    port: 8084
+    env: PORT
+  env:
+    - name: PORT
+      value: "8084"
+    # Optional: Enable voice inference
+    # - name: AEGONG_VOICE_ENABLED
+    #   value: "true"
+
+  # Define directories that should persist between deployments
+  volumes:
+    - source: /uploads
+      destination: /uploads
+    - source: /reports
+      destination: /reports
+    - source: /voice_reports
+      destination: /voice_reports
+
+# Configure instance size
+instance:
+  cpu: 1
+  memory: 2GB
+  instance-role-arn: "arn:aws:iam::ACCOUNT_ID:role/AppRunnerServiceRole"
+
+# Health check configuration
+health-check:
+  path: "/"
+  protocol: HTTP
+  interval: 10
+  timeout: 5
+  healthy-threshold: 3
+  unhealthy-threshold: 5
+
+# Auto-scaling configuration
+auto-scaling:
+  min-size: 1
+  max-size: 5
+  metric: CPU
+  target: 70
+  max-concurrency: 100
