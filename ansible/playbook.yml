@@ -199,20 +199,22 @@
     instance_id: "{{ hostvars['localhost']['instance_id'] | default(None) }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
     force_update: "{{ force_update | default(false) }}"
-    caller_id: "{{ caller_id | default('') }}"
-    keep_running: "{{ caller_id != '' }}"  # Keep instance running if caller_id is provided (triggered from loader)
+    # Check if caller_id is defined in extra vars
+    has_caller_id: "{{ caller_id is defined }}"
+    # Keep instance running if caller_id is defined (triggered from loader)
+    keep_running: "{{ has_caller_id }}"
   
   tasks:
     - name: Debug caller information
       debug:
         msg: 
-          - "Caller ID: {{ caller_id | default('not provided') }}"
-          - "Keep running: {{ keep_running | bool }}"
+          - "Caller ID defined: {{ has_caller_id }}"
+          - "Keep running: {{ keep_running }}"
       tags: [ec2_management]
       
     - name: Skip if auto-stop is disabled, instance_id is not defined, or triggered from loader
       meta: end_play
-      when: (not ec2_auto_stop | bool and not force_update | bool) or instance_id is none or keep_running | bool
+      when: (not ec2_auto_stop | bool and not force_update | bool) or instance_id is none or keep_running
       tags: [ec2_management]
       
     - name: Skip stopping EC2 if this is a DNS-only update
@@ -228,7 +230,7 @@
         wait: yes
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: stopped_instance
-      when: (ec2_auto_stop | bool or force_update | bool) and instance_id is not none and not keep_running | bool
+      when: (ec2_auto_stop | bool or force_update | bool) and instance_id is not none and not keep_running
       tags: [ec2_management]
       
     - name: Confirm instance is stopped
