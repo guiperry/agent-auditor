@@ -45,17 +45,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ansible sshpass python3-boto3 python3-botocore
           
-          # Find the Ansible Python interpreter path
-          ANSIBLE_PYTHON_PATH=$(ansible --version | grep "python version" | awk '{print $4}')
-          echo "Ansible is using Python interpreter: $ANSIBLE_PYTHON_PATH"
+          # Install Python dependencies for all possible Python interpreters
+          echo "Installing boto3 and botocore for all Python interpreters"
+          sudo pip3 install boto3 botocore
           
-          # Install Python dependencies in the Ansible Python environment
-          if [[ -n "$ANSIBLE_PYTHON_PATH" ]]; then
-            echo "Installing boto3 and botocore for Ansible's Python interpreter"
-            sudo -H $ANSIBLE_PYTHON_PATH -m pip install boto3 botocore
-          else
-            echo "Installing boto3 and botocore system-wide"
-            sudo pip3 install boto3 botocore
+          # Install for Python 3.10 if it exists
+          if command -v python3.10 &> /dev/null; then
+            sudo python3.10 -m pip install boto3 botocore
+          fi
+          
+          # Install for Python 3.11 if it exists
+          if command -v python3.11 &> /dev/null; then
+            sudo python3.11 -m pip install boto3 botocore
+          fi
+          
+          # Install for Python 3.12 if it exists
+          if command -v python3.12 &> /dev/null; then
+            sudo python3.12 -m pip install boto3 botocore
+          fi
+          
+          # Install for the default Python
+          sudo python3 -m pip install boto3 botocore
+          
+          # Install for the pipx environment that Ansible might be using
+          if [ -d "/opt/pipx/venvs/ansible-core/bin/python" ]; then
+            sudo /opt/pipx/venvs/ansible-core/bin/python -m pip install boto3 botocore
           fi
 
       - name: Configure SSH
@@ -82,16 +96,23 @@ jobs:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
           FORCE_UPDATE: ${{ github.event.inputs.force_update }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
-          ANSIBLE_PYTHON_INTERPRETER: /usr/bin/python3
         run: |
           echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
           
+          # Check if pipx Python exists and use it
+          if [ -f "/opt/pipx/venvs/ansible-core/bin/python" ]; then
+            ANSIBLE_PYTHON_PATH="/opt/pipx/venvs/ansible-core/bin/python"
+            echo "Using pipx Python interpreter: $ANSIBLE_PYTHON_PATH"
+          else
+            ANSIBLE_PYTHON_PATH=$(which python3)
+            echo "Using system Python interpreter: $ANSIBLE_PYTHON_PATH"
+          fi
+          
           # Run only the EC2 management and IP update parts of the playbook
-          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_INTERPRETER"
+          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH"
           
           # Display debug information
           echo "Using EC2 instance ID: $EC2_INSTANCE_ID"
-          echo "Using Python interpreter: $ANSIBLE_PYTHON_INTERPRETER"
           
           rm .vault_pass
 
