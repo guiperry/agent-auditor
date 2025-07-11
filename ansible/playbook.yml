@@ -76,7 +76,6 @@
             msg: "Final instance ID: '{{ instance_id | default('not set') }}'"
       when: ec2_auto_start | bool or force_update | bool
       tags: [ec2_management]
-        
     - name: Start EC2 instance
       amazon.aws.ec2_instance:
         instance_ids: "{{ instance_id }}"
@@ -85,7 +84,7 @@
         wait: yes
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: started_instance
-      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and not skip_ec2_start
+      when: instance_id is defined and not skip_ec2_start
       tags: [ec2_management]
       
     - name: Get instance public IP
@@ -93,13 +92,25 @@
         region: "{{ aws_region }}"
         instance_ids: "{{ instance_id }}"
       register: running_instance_info
-      when: instance_id is defined and ((ec2_auto_start | bool or force_update | bool) or dns_only_update | default(false) | bool)
+      when: instance_id is defined
       tags: [ec2_management, update_dns]
       
     - name: Set instance IP variable
       set_fact:
-        instance_ip: "{{ running_instance_info.instances[0].public_ip_address }}"
+        instance_ip: "{{ running_instance_info.instances[0].public_ip_address | default(running_instance_info.instances[0].private_ip_address) }}"
+      when: running_instance_info is defined and running_instance_info.instances | length > 0 and (running_instance_info.instances[0].public_ip_address is defined or running_instance_info.instances[0].private_ip_address is defined)
+      tags: [ec2_management, update_dns]
+      
+    - name: Debug instance state
+      debug:
+        msg: "Instance state: {{ running_instance_info.instances[0].state.name | default('unknown') }}"
       when: running_instance_info is defined and running_instance_info.instances | length > 0
+      tags: [ec2_management, update_dns]
+      
+    - name: Debug instance IP
+      debug:
+        msg: "Instance IP: {{ instance_ip | default('Not available - instance may be stopped') }}"
+      when: running_instance_info is defined
       tags: [ec2_management, update_dns]
         
     - name: Wait for SSH to become available
