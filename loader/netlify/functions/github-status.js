@@ -1,5 +1,6 @@
 // netlify/functions/github-status.js
 const axios = require('axios');
+const ipStore = require('./ip-store');
 
 // Function to check workflow status and get instance details
 async function checkWorkflowStatus(token, owner, repo, runId) {
@@ -38,13 +39,20 @@ async function checkWorkflowStatus(token, owner, repo, runId) {
         });
         
         if (statusResponse.data && statusResponse.data.ip_address) {
+          const ipAddress = statusResponse.data.ip_address;
+          const redirectUrl = `http://${ipAddress}`;
+          
+          // Save the IP address to our storage
+          console.log(`Saving IP address ${ipAddress} to storage`);
+          await ipStore.saveIpAddress(ipAddress, true);
+          
           return {
             success: true,
             status: 'completed',
             conclusion: 'success',
             isReady: true,
-            publicIp: statusResponse.data.ip_address,
-            redirectUrl: `http://${statusResponse.data.ip_address}`,
+            publicIp: ipAddress,
+            redirectUrl: redirectUrl,
             timestamp: statusResponse.data.timestamp
           };
         }

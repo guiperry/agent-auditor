@@ -288,6 +288,7 @@
                 const data = await response.json();
                 
                 if (data.status === 'already_running') {
+                    updateStatus('✅ Site is already running at last known IP! Redirecting...');
                     handleInstanceReady(data);
                 } else if (data.status === 'starting') {
                     updateStatus('🚀 EC2 Instance starting via GitHub workflow... Build your robot while you wait!');
@@ -389,12 +390,18 @@
             const completionMessage = document.getElementById('completionMessage');
             let countdown = 3; // Reduced from 5 to 3 seconds
             
+            // Check if this is an already running instance or a newly started one
+            const isAlreadyRunning = data.status === 'already_running';
+            const statusMessage = isAlreadyRunning 
+                ? "Agent Auditor is already running!" 
+                : "Your Agent Auditor is ready!";
+            
             const updateCountdown = () => {
                 // Update top notification
                 topNotification.innerHTML = `
                     <div style="display: flex; justify-content: center; align-items: center;">
                         <div style="animation: bounce 1s infinite; margin-right: 10px;">🎉</div>
-                        <div>Your Agent Auditor is ready! Redirecting in ${countdown} seconds...</div>
+                        <div>${statusMessage} Redirecting in ${countdown} seconds...</div>
                         <div style="animation: bounce 1s infinite; margin-left: 10px;">🎉</div>
                     </div>
                 `;
@@ -402,7 +409,7 @@
                 // Update completion message
                 completionMessage.innerHTML = `
                     <div style="animation: bounce 1s infinite;">
-                        🎉 Your Agent Auditor is ready! 🎉
+                        🎉 ${statusMessage} 🎉
                     </div>
                     <div style="margin-top: 15px; font-size: 20px; font-weight: bold;">
                         Redirecting in ${countdown} seconds...
@@ -433,6 +440,10 @@
                     <div style="margin-top: 10px; font-size: 14px; opacity: 0.8;">
                         Public IP: ${data.publicIp || 'N/A'}
                     </div>
+                    ${isAlreadyRunning ? 
+                      `<div style="margin-top: 10px; font-size: 14px; background: rgba(0,184,148,0.2); padding: 8px; border-radius: 5px;">
+                         ⚡ Using cached IP address - no need to start a new instance!
+                       </div>` : ''}
                 `;
             };
             

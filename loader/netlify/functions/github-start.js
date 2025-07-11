@@ -1,6 +1,7 @@
 // netlify/functions/github-start.js
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
+const ipStore = require('./ip-store');
 
 // Function to trigger GitHub workflow
 async function triggerGitHubWorkflow(token, owner, repo, workflow_id, ref = 'main') {
@@ -40,6 +41,58 @@ async function triggerGitHubWorkflow(token, owner, repo, workflow_id, ref = 'mai
       error: error.message,
       status: error.response ? error.response.status : 500
     };
+  }
+}
+
+// Function to check if the site is already running at the last known IP address
+async function checkExistingInstance() {
+  try {
+    // Get the last known IP address
+    const lastIpData = await ipStore.getLastIpAddress();
+    
+    if (!lastIpData || !lastIpData.ipAddress) {
+      console.log('No last known IP address found');
+      return { running: false };
+    }
+    
+    console.log(`Found last known IP address: ${lastIpData.ipAddress}`);
+    
+    // Check if the server is available at the last known IP address
+    const availabilityResult = await ipStore.checkServerAvailability(
+      lastIpData.ipAddress, 
+      lastIpData.port
+    );
+    
+    if (availabilityResult.available) {
+      console.log(`Server is already running at ${availabilityResult.workingUrl}`);
+      
+      // Update the last checked timestamp
+      await ipStore.saveIpAddress(
+        lastIpData.ipAddress, 
+        true, 
+        availabilityResult.port
+      );
+      
+      return {
+        running: true,
+        publicIp: lastIpData.ipAddress,
+        redirectUrl: availabilityResult.workingUrl
+      };
+    } else {
+      console.log(`Server is not running at the last known IP address: ${lastIpData.ipAddress}`);
+      
+      // Update the status to indicate the server is not running
+      await ipStore.saveIpAddress(
+        lastIpData.ipAddress, 
+        false, 
+        lastIpData.port
+      );
+      
+      return { running: false };
+    }
+  } catch (error) {
+    console.error('Error checking existing instance:', error);
+    return { running: false, error: error.message };
   }
 }
 
@@ -165,8 +218,28 @@ Please add the following environment variables in your Netlify dashboard:
       };
     }
     
-    // Trigger the GitHub workflow
-    console.log(`🚀 Triggering GitHub workflow to start EC2 instance`);
+    // First, check if the site is already running at the last known IP address
+    console.log('Checking if site is already running at last known IP address...');
+    const existingInstanceResult = await checkExistingInstance();
+    
+    if (existingInstanceResult.running) {
+      console.log(`Site is already running at ${existingInstanceResult.redirectUrl}`);
+      return {
+        statusCode: 200,
+        headers: headers,
+        body: JSON.stringify({
+          status: 'already_running',
+          message: 'Site is already running at last known IP address',
+          isReady: true,
+          publicIp: existingInstanceResult.publicIp,
+          redirectUrl: existingInstanceResult.redirectUrl,
+          state: 'running'
+        })
+      };
+    }
+    
+    // If the site is not already running, trigger the GitHub workflow
+    console.log(`🚀 Site not running at last known IP. Triggering GitHub workflow to start EC2 instance`);
     const result = await triggerGitHubWorkflow(
       githubToken, 
       owner, 

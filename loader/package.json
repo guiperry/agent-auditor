@@ -11,6 +11,7 @@
   "dependencies": {
     "aws-sdk": "^2.1467.0",
     "axios": "^1.6.2",
+    "node-fetch": "^2.6.9",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

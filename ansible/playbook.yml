@@ -20,9 +20,14 @@
     force_update: "{{ force_update | default(false) }}"
   
   tasks:
-    - name: Skip EC2 management if auto-start is disabled and not forced
-      meta: end_play
-      when: not ec2_auto_start | bool and not force_update | bool
+    - name: Skip EC2 instance starting if not explicitly requested
+      set_fact:
+        skip_ec2_start: "{{ not (caller_id is defined) and not force_update | bool }}"
+      tags: [ec2_management]
+      
+    - name: Debug EC2 start decision
+      debug:
+        msg: "EC2 start decision: {{ 'SKIPPING EC2 start (regular deployment)' if skip_ec2_start else 'STARTING EC2 (loader or forced)' }}"
       tags: [ec2_management]
       
     - name: Set instance ID from parameter or find by tag
@@ -79,7 +84,7 @@
         wait: yes
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: started_instance
-      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and not skip_ec2_start
       tags: [ec2_management]
       
     - name: Get instance public IP
@@ -87,13 +92,13 @@
         region: "{{ aws_region }}"
         instance_ids: "{{ instance_id }}"
       register: running_instance_info
-      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined
+      when: instance_id is defined and ((ec2_auto_start | bool or force_update | bool) or dns_only_update | default(false) | bool)
       tags: [ec2_management, update_dns]
       
     - name: Set instance IP variable
       set_fact:
         instance_ip: "{{ running_instance_info.instances[0].public_ip_address }}"
-      when: (ec2_auto_start | bool or force_update | bool) and running_instance_info is defined
+      when: running_instance_info is defined and running_instance_info.instances | length > 0
       tags: [ec2_management, update_dns]
         
     - name: Wait for SSH to become available
@@ -103,7 +108,7 @@
         delay: 10
         timeout: 300
       delegate_to: localhost
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined and (caller_id is defined)
       tags: [ec2_management]
       
     - name: Update inventory with dynamic IP
@@ -114,7 +119,7 @@
         ansible_ssh_private_key_file: "{{ ec2_ssh_key_file }}"
         ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
         ansible_python_interpreter: "auto_silent"
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined and (caller_id is defined)
       tags: [ec2_management]
         
     - name: Debug SSH configuration
@@ -123,20 +128,20 @@
           - "SSH User: {{ ec2_ssh_user }}"
           - "SSH Key File: {{ ec2_ssh_key_file }}"
           - "Target IP: {{ instance_ip }}"
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined and (caller_id is defined)
       tags: [ec2_management]
         
     - name: Display instance information
       debug:
         msg: "EC2 instance {{ instance_id }} is now running at {{ instance_ip }}"
-      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and instance_ip is defined and (caller_id is defined or dns_only_update | default(false) | bool)
       tags: [ec2_management, update_dns]
         
     - name: Update configuration files with new IP address
       shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ instance_ip }}"
       args:
         chdir: "{{ playbook_dir }}/.."
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      when: instance_ip is defined
       delegate_to: localhost
       tags: [ec2_management, update_dns]
 
@@ -151,17 +156,22 @@
   tasks:
     - meta: end_play
       
-# Deploy to dynamic IP if auto-start is enabled
+# Deploy to dynamic IP if triggered from loader
 - name: Deploy Agent Auditor Application (Dynamic IP)
   hosts: aegong_dynamic
   become: true
   gather_facts: false
   vars:
     ansible_python_interpreter: auto_silent
-    deploy_condition: "{{ ec2_auto_start | bool and hostvars['localhost']['instance_ip'] is defined }}"
+    # Only run this play for loader-triggered deployments (with caller_id)
+    deploy_condition: "{{ hostvars['localhost']['caller_id'] is defined and hostvars['localhost']['instance_ip'] is defined }}"
   pre_tasks:
     - meta: end_play
       when: not deploy_condition
+      
+    - name: Display deployment information
+      debug:
+        msg: "Deploying to dynamic IP (loader-triggered deployment)"
       
     - name: Install Python for Ansible
       raw: test -e /usr/bin/python3 || (apt -y update && apt install -y python3-minimal)
@@ -172,19 +182,23 @@
   roles:
     - agent_auditor
 
-# Deploy to static inventory if auto-start is disabled
-# This play is now disabled as we're using the dynamic IP approach
+# Deploy to static inventory for regular deployments
 - name: Deploy Agent Auditor Application (Static IP)
   hosts: aegong_servers
   become: true
   gather_facts: true
-  roles:
-    - agent_auditor
   vars:
-    deploy_condition: false  # Always skip this play as we're using dynamic IP
-  tasks:
+    # Only run this play for regular deployments (no caller_id)
+    deploy_condition: "{{ not (hostvars['localhost']['caller_id'] is defined) }}"
+  pre_tasks:
     - meta: end_play
       when: not deploy_condition
+      
+    - name: Display deployment information
+      debug:
+        msg: "Deploying to static inventory (regular deployment)"
+  roles:
+    - agent_auditor
 
 - name: Stop EC2 instance after deployment
   hosts: localhost
