@@ -215,7 +215,7 @@ For detailed setup instructions and provider-specific options, see [TTS Provider
    ```
 
 6. **Access Aegong's interface**
-   Open your browser to `http://localhost:8080`
+   Open your browser to `http://localhost:80`
 
 ### Deployment
 
@@ -336,7 +336,7 @@ When voice reports are enabled, an additional audio file is generated containing
 ## 🔧 Configuration
 
 ### Environment Variables
-- `PORT` - Web server port (default: 8080)
+- `PORT` - Web server port (default: 80)
 - `LOG_LEVEL` - Logging verbosity (default: INFO)
 
 ### Configuration Files

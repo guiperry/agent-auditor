@@ -129,11 +129,11 @@ exports.handler = async function(event, context) {
       publicIp = instance.PublicIpAddress;
       
       if (publicIp) {
-        redirectUrl = `http://${publicIp}:8080`;
+        redirectUrl = `http://${publicIp}:80`;
         console.log(`🎉 Instance ${instanceId} is ready! Public IP: ${publicIp}`);
       } else {
         // Fallback IP address if instance IP is not available
-        const FALLBACK_IP = "3.146.37.27:8080";
+        const FALLBACK_IP = "3.146.37.27:80";
         redirectUrl = `http://${FALLBACK_IP}`;
         console.log(`🎉 Instance ${instanceId} is ready! Using fallback IP: ${FALLBACK_IP}`);
       }

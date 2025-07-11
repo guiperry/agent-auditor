@@ -44,28 +44,30 @@ flowchart TB
         end
 
         subgraph VoiceLayer["Voice Reporter Layer"]
-            VIM["Voice Integration Manager"] --- TTSProviders["TTS Providers"]
-
-            subgraph TTSProviders
+            VIM["Voice Integration Manager"]
+            
+            subgraph TTSProvidersGroup["TTS Providers"]
                 OpenAI --- Google --- Azure
                 Cartesia
             end
+            
+            VIM --- TTSProvidersGroup
         end
 
         ValidationLayer --> CoreEngine
         CoreEngine --> ShieldModules
-        ShieldModules --> VoiceLayer
+        ShieldModules --> VIM
     end
 
     %% Data flow from User through the system and back
-    User -->|"1. Upload Agent"| LoaderUI
-    LoaderUI -->|"2. Start Analysis"| NetlifyFunctions
-    NetlifyFunctions -->|"3. Start/Monitor"| EC2Instance
-    ValidationLayer -->|"4. Validate"| CoreEngine
-    CoreEngine -->|"5. Analyze"| ShieldModules
-    ShieldModules -->|"6. Generate Report"| VoiceLayer
-    VoiceLayer -->|"7. Return Results"| EC2Instance
-    EC2Instance -->|"8. Display Results"| User
+    User --> LoaderUI
+    LoaderUI --> NetlifyFunctions
+    NetlifyFunctions --> EC2Instance
+    ValidationLayer --> CoreEngine
+    CoreEngine --> ShieldModules
+    ShieldModules --> VIM
+    VIM --> EC2Instance
+    EC2Instance --> User
     
     %% High contrast colors for better visibility
     style User fill:#00796b,color:#ffffff,stroke:#004d40,stroke-width:2px
@@ -77,7 +79,7 @@ flowchart TB
     style CoreEngine fill:#8e24aa,color:#ffffff,stroke:#4a148c,stroke-width:2px
     style ShieldModules fill:#9c27b0,color:#ffffff,stroke:#4a148c,stroke-width:2px
     style VoiceLayer fill:#ab47bc,color:#ffffff,stroke:#4a148c,stroke-width:2px
-    style TTSProviders fill:#ba68c8,color:#ffffff,stroke:#4a148c,stroke-width:2px
+    style TTSProvidersGroup fill:#ba68c8,color:#ffffff,stroke:#4a148c,stroke-width:2px
 ```
 
 ## 🚀 Interactive Loader Gateway
@@ -312,7 +314,7 @@ The loader handles all the infrastructure management automatically, providing a 
    ```
 
 6. **Access Aegong's interface**
-   Open your browser to `http://localhost:8080`
+   Open your browser to `http://localhost:80`
 
 ### Deployment
 
@@ -469,7 +471,7 @@ When voice reports are enabled, an additional audio file is generated containing
 ## 🔧 Configuration
 
 ### Environment Variables
-- `PORT` - Web server port (default: 8080)
+- `PORT` - Web server port (default: 80)
 - `LOG_LEVEL` - Logging verbosity (default: INFO)
 - `AEGONG_DEV_MODE` - Set to "1" to run in development mode (skips cgroup creation)
 - `GO_TEST` - Set to "1" during tests to skip certain operations
@@ -501,7 +503,7 @@ If you experience issues with the Interactive Loader Gateway:
 
 3. **Redirect Issues**:
    - Verify the EC2 instance has a public IP address
-   - Check security group settings allow inbound traffic on port 8080
+   - Check security group settings allow inbound traffic on port 80
    - Ensure the main application is running on the EC2 instance
 
 For loader-specific troubleshooting, see the [Loader Documentation](loader/README.md).

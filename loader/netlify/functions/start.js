@@ -122,7 +122,7 @@ exports.handler = async function(event, context) {
       
       const instance = describeResponse.Reservations[0].Instances[0];
       const publicIp = instance.PublicIpAddress;
-      const redirectUrl = publicIp ? `http://${publicIp}:8080` : null;
+      const redirectUrl = publicIp ? `http://${publicIp}:80` : null;
       
       console.log(`✅ Instance ${instanceId} is already ${instanceInfo.InstanceState.Name}`);
       

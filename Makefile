@@ -19,7 +19,7 @@ help:
 	@echo ""
 	@echo "Development Targets:"
 	@echo "  build              Build the Go application binary."
-	@echo "  run                Build and run the Go application locally on port 8080."
+	@echo "  run                Build and run the Go application locally on port 80."
 	@echo "  test               Run all Go tests."
 	@echo "  keys               Generate a new encrypted API key file (default.key)."
 	@echo "  test-keys          Build the key testing utility."
@@ -52,7 +52,7 @@ build: generate-docs
 	@echo "✅ Build complete: ./$(BINARY_NAME) (single binary with embedded assets and documentation)"
 
 run: build
-	@echo "Starting Aegong Agent Auditor locally on http://localhost:8080"
+	@echo "Starting Aegong Agent Auditor locally on http://localhost:80"
 	./$(BINARY_NAME)
 
 test:

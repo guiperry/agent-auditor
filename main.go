@@ -142,7 +142,7 @@ func main() {
 	} else {
 		log.Printf("Info: Loaded environment variables from .env file")
 	}
-	
+
 	// Check if we're running in development mode
 	if os.Getenv("AEGONG_DEV_MODE") == "" {
 		// Check if we're running locally (not in production)
@@ -152,7 +152,7 @@ func main() {
 			os.Setenv("AEGONG_DEV_MODE", "1")
 		}
 	}
-	
+
 	if os.Getenv("AEGONG_DEV_MODE") == "1" {
 		log.Printf("Info: Running in development mode - some features may be limited")
 	}
@@ -215,7 +215,7 @@ func main() {
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" // Changed default from 8084 to 8080
+		port = "80" // Changed default from 8084 to 80
 	}
 
 	fmt.Println("🤖 Aegong - The Agent Auditor is awakening...")
@@ -300,7 +300,7 @@ func auditHandler(w http.ResponseWriter, r *http.Request) {
 
 	// If confidence is too low, warn but continue
 	if validationResult.Confidence < 0.5 {
-		log.Printf("Warning: Low confidence (%f) that %s is an AI agent", 
+		log.Printf("Warning: Low confidence (%f) that %s is an AI agent",
 			validationResult.Confidence, filename)
 	}
 
@@ -389,7 +389,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	hash := vars["hash"]
-	
+
 	log.Printf("Voice report requested for hash: %s", hash)
 
 	// Check if voice inference is enabled
@@ -398,14 +398,14 @@ func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Voice inference is not enabled", http.StatusNotImplemented)
 		return
 	}
-	
+
 	log.Printf("Voice inference is enabled, using provider: %s", voiceManager.config.Provider)
 
 	// Check if we already have a voice report for this hash
 	audioPath, exists := voiceManager.GetAudioPathForReport(hash)
 	if !exists {
 		log.Printf("No cached voice report found for hash: %s, generating new one", hash)
-		
+
 		// Check if the report file exists
 		reportPath := filepath.Join("reports", fmt.Sprintf("report_%s.json", hash))
 		if _, err := os.Stat(reportPath); err != nil {
@@ -413,9 +413,9 @@ func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Report file not found: %v", err), http.StatusNotFound)
 			return
 		}
-		
+
 		log.Printf("Found report file: %s", reportPath)
-		
+
 		// Try to generate a new voice report
 		var err error
 		audioPath, err = voiceManager.GenerateVoiceReport(reportPath)
@@ -424,7 +424,7 @@ func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Failed to generate voice report: %v", err), http.StatusInternalServerError)
 			return
 		}
-		
+
 		log.Printf("Successfully generated voice report: %s", audioPath)
 	} else {
 		log.Printf("Found cached voice report: %s", audioPath)
@@ -436,7 +436,7 @@ func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Voice report not found", http.StatusNotFound)
 		return
 	}
-	
+
 	log.Printf("Voice report file exists: %s", audioPath)
 
 	// Return the audio file path
@@ -444,7 +444,7 @@ func voiceReportHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]string{
 		"audio_url": audioURL,
 	}
-	
+
 	log.Printf("Returning audio URL: %s", audioURL)
 
 	w.Header().Set("Content-Type", "application/json")

@@ -122,7 +122,7 @@ def handle_check_status(ec2, headers):
     """Check the current status of the EC2 instance"""
     try:
         # Fallback IP address to use if instance IP is not available
-        FALLBACK_IP = "3.146.37.27:8080"
+        FALLBACK_IP = "3.146.37.27:80"
         
         reservations = ec2.describe_instances(InstanceIds=[INSTANCE_ID])
         instance = reservations['Reservations'][0]['Instances'][0]

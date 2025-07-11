@@ -28,12 +28,12 @@ GIT_VERSION=$(git describe --tags --exact-match 2>/dev/null || git rev-parse --s
 ### 2. Port Configuration Updates
 
 #### **main.go**
-- **Changed default port**: From `8084` to `8080` (more standard for web applications)
+- **Changed default port**: From `8084` to `80` (more standard for web applications)
 - **Added environment variable support**: Application now reads `PORT` environment variable
 - **Configurable port binding**: `http.ListenAndServe(":"+port, r)`
 
 #### **Makefile**
-- Updated help text and run target to reflect new default port `8080`
+- Updated help text and run target to reflect new default port `80`
 - Added `sync-voice-config` target for template synchronization
 
 ### 3. Ansible Configuration Updates
@@ -124,7 +124,7 @@ make version
 
 ### 2. Local Development
 ```bash
-# Build and run with default port (8080)
+# Build and run with default port (80)
 make run
 
 # Run with custom port
@@ -155,7 +155,7 @@ make sync-voice-config
 
 3. **Ensure AWS Security Group allows**:
    - SSH (port 22)
-   - Application port (8080 or configured port)
+   - Application port (80 or configured port)
 
 #### **Deploy**:
 ```bash
@@ -167,7 +167,7 @@ make test-deploy
 ```
 
 #### **Post-Deployment**:
-- Application will be accessible at: `http://YOUR_EC2_IP:8080`
+- Application will be accessible at: `http://YOUR_EC2_IP:80`
 - Version deployed matches your git tag/commit
 - Service runs with proper environment configuration
 
@@ -235,7 +235,7 @@ To make your deployments fully automated, you can use Ansible to manage the AWS 
            rule_desc: Allow SSH access
          - proto: tcp
            ports:
-             - 8080
+             - 80
            cidr_ip: 0.0.0.0/0
            rule_desc: Allow application access
      register: security_group
@@ -251,13 +251,13 @@ To make your deployments fully automated, you can use Ansible to manage the AWS 
 2. Create new Security Group: `aegong-sg`
 3. Add Inbound Rules:
    - SSH: TCP/22 from your IP
-   - Custom TCP: TCP/8080 from 0.0.0.0/0 (or specific IPs)
+   - Custom TCP: TCP/80 from 0.0.0.0/0 (or specific IPs)
 
 #### **AWS CLI Setup** (alternative to Ansible):
 ```bash
 aws ec2 create-security-group --group-name aegong-sg --description "Agent Auditor Security Group"
 aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 22 --cidr 0.0.0.0/0
-aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 8080 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 80 --cidr 0.0.0.0/0
 ```
 
 ## Benefits
