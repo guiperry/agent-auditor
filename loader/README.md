@@ -1,54 +1,62 @@
-# 🤖 Build-a-Bot: Interactive Loading Game for AWS Lambda
+# 🤖 Build-a-Bot: Interactive Loading Game for Agent Auditor
 
-An engaging robot-building game that entertains users while AWS Lambda functions perform backend operations. This project uses Amazon API Gateway to connect the frontend game with Lambda functions that manage EC2 instances.
+An engaging robot-building game that entertains users while Netlify Functions perform backend operations. This project uses Netlify Functions to manage EC2 instances, providing a simplified serverless architecture.
 
 ## 📋 Overview
 
-Build-a-Bot provides an interactive loading experience that keeps users engaged during the wait time for AWS resources to initialize. Instead of showing a boring loading spinner, users can build their own robot while the Lambda function starts an EC2 instance in the background.
+Build-a-Bot provides an interactive loading experience that keeps users engaged during the wait time for AWS resources to initialize. Instead of showing a boring loading spinner, users can build their own robot while Netlify Functions start an EC2 instance in the background.
 
-## 🏗️ AWS API Gateway Setup
+## 🏗️ Netlify Functions Architecture
 
-You'll need to configure Amazon API Gateway with these endpoints:
+This application uses Netlify Functions with these endpoints:
 
-| Method | Path     | Integration     | CORS  |
-|--------|----------|----------------|-------|
-| POST   | /start   | Lambda Function | Yes   |
-| GET    | /status  | Lambda Function | Yes   |
+| Method | Path                        | Function    | Purpose                    |
+|--------|-----------------------------|-------------|----------------------------|
+| POST   | /.netlify/functions/start   | start.js    | Start EC2 instance         |
+| GET    | /.netlify/functions/status  | status.js   | Check instance status      |
 
 ## 🚀 Deployment Steps
 
-### Step 1: Deploy Lambda Function
+### Step 1: Install Dependencies
 
-1. Update your Lambda function with the code from `EC2_Lambda.py`
-2. Set environment variables:
-   - `REGION` - AWS region where your EC2 instance is located
-   - `INSTANCE_ID` - ID of the EC2 instance to manage
-3. Ensure Lambda has proper IAM permissions to manage EC2 instances
-
-### Step 2: Create API Gateway
-
-1. Go to AWS API Gateway console
-2. Create a new REST API
-3. Create resources `/start` and `/status`
-4. Add POST method to `/start` and GET method to `/status`
-5. Enable CORS for both endpoints
-6. Deploy to a stage (e.g., `prod`)
-
-### Step 3: Update HTML Configuration
-
-1. In `index.html`, replace:
-   ```javascript
-   const API_BASE_URL = 'https://your-api-id.execute-api.region.amazonaws.com/prod';
+1. Navigate to the loader directory:
+   ```bash
+   cd loader
+   npm install
    ```
-   with your actual API Gateway URL
-2. Deploy to Netlify or your preferred hosting service
 
-### Step 4: Test the Flow
+### Step 2: Configure Environment Variables
 
-1. User visits your hosted page
-2. Page automatically calls `/start` endpoint
-3. Lambda function starts EC2 instance
-4. Page polls `/status` endpoint every 5 seconds
+Set these environment variables in your Netlify dashboard (Site settings > Environment variables):
+
+- `NETLIFY_AWS_REGION` - AWS region where your EC2 instance is located (e.g., `us-east-1`)
+- `NETLIFY_AWS_KEY_ID` - Your AWS access key ID
+- `NETLIFY_AWS_SECRET_KEY` - Your AWS secret access key
+- `NETLIFY_EC2_INSTANCE_ID` - ID of the EC2 instance to manage (e.g., `i-0123456789abcdef0`)
+
+> **Important:** We use custom environment variable names to avoid Netlify's reserved environment variable restrictions. Netlify reserves standard AWS environment variable names (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for its own use.
+
+### Step 3: Deploy to Netlify
+
+1. Connect your GitHub repository to Netlify
+2. Set the base directory to `loader`
+3. The build settings are automatically configured via `netlify.toml`
+4. Deploy the site
+
+### Step 4: Local Development (Optional)
+
+For local testing:
+```bash
+cd loader
+npm run dev
+```
+
+### Step 5: Test the Flow
+
+1. User visits your hosted Netlify page
+2. Page automatically calls `/.netlify/functions/start` endpoint
+3. Netlify Function starts EC2 instance using AWS SDK
+4. Page polls `/.netlify/functions/status` endpoint every 5 seconds
 5. User plays with the robot-building game while waiting
 6. When ready, the page shows "Go to Instance" button
 7. User can click to redirect to their EC2 instance
@@ -57,36 +65,36 @@ You'll need to configure Amazon API Gateway with these endpoints:
 
 For production environments, consider:
 
-1. **Restrict CORS origins**:
-   ```python
-   headers = {
-       'Access-Control-Allow-Origin': 'https://your-app.netlify.app',  # Specific domain
-       # ... other headers
+1. **Restrict CORS origins** in `netlify.toml`:
+   ```toml
+   [[headers]]
+     for = "/.netlify/functions/*"
+     [headers.values]
+       Access-Control-Allow-Origin = "https://your-app.netlify.app"
+   ```
+
+2. **Add configuration validation** in your functions:
+   ```javascript
+   if (!keys.region || !keys.instanceId) {
+     return {
+       statusCode: 500,
+       body: JSON.stringify({ error: 'Missing required configuration' })
+     };
    }
    ```
 
-2. **Add API key authentication**:
-   ```python
-   def lambda_handler(event, context):
-       # Check API key
-       api_key = event.get('headers', {}).get('x-api-key')
-       if api_key != os.environ.get('EXPECTED_API_KEY'):
-           return {
-               'statusCode': 401,
-               'headers': headers,
-               'body': json.dumps({'error': 'Unauthorized'})
-           }
-       # ... rest of your code
-   ```
+3. **Use IAM roles with minimal permissions** for your AWS credentials
 
 ## ✨ Features
 
-This setup provides:
-- Real-time status monitoring
-- Smooth user experience
-- Automatic redirection when ready
-- Error handling
-- CORS support for browser requests
+This Netlify Functions setup provides:
+- Real-time status monitoring via serverless functions
+- Smooth user experience with no API Gateway complexity
+- Automatic redirection when EC2 instance is ready
+- Comprehensive error handling
+- Built-in CORS support
+- Simplified deployment process
+- Local development support with `netlify dev`
 
 ## 🚀 Auto-Redirect Flow
 
@@ -133,3 +141,28 @@ The system handles cases where:
 - Network errors during status checking
 
 This creates a smooth, automatic experience while still giving users control over the redirect behavior. The game keeps them engaged during the wait time, then seamlessly transitions them to their EC2 instance!
+
+## 🏗️ Architecture Benefits
+
+The Netlify Functions implementation provides several advantages over the previous AWS Lambda + API Gateway setup:
+
+### Simplified Infrastructure
+- **Single Platform**: Everything hosted on Netlify (static files + serverless functions)
+- **No API Gateway**: Direct function endpoints eliminate additional configuration
+- **Unified Deployment**: One deployment process for frontend and backend
+
+### Developer Experience
+- **Local Development**: Use `netlify dev` to test functions locally
+- **Environment Variables**: Managed through Netlify dashboard
+- **Automatic HTTPS**: Built-in SSL certificates
+- **Git Integration**: Automatic deployments from repository
+
+### Cost Efficiency
+- **Reduced Services**: Fewer AWS services to manage and pay for
+- **Netlify Free Tier**: Generous limits for small to medium applications
+- **Pay-per-Use**: Functions only run when needed
+
+### Maintenance
+- **Simplified Monitoring**: Single platform for logs and analytics
+- **Easier Updates**: Direct file updates without Lambda deployment packages
+- **Version Control**: Functions are part of your repository

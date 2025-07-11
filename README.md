@@ -14,33 +14,120 @@ Leveraging advanced threat detection capabilities and robust security measures, 
 ## 🏗️ Architecture Overview
 
 ```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': { 'darkMode': true }}}%%
 flowchart TB
-    subgraph ValidationLayer["Agent Validation Layer"]
-        AV["Agent Validator"] --- CD["Capability Detector"] --- FC["Format Classifier"]
-    end
+    User(["👤 User"])
     
-    subgraph CoreEngine["AEGONG Core Engine"]
-        BA["Binary Analyzer"] --- SCS["Static Code Scanner"] --- DEM["Dynamic Execution Monitor"]
-    end
-
-    subgraph ShieldModules["SHIELD Validation Modules"]
-        SV["Segmentation Validator"] --- HPD["Heuristic Pattern Detector"] --- IC["Integrity Checker"]
-        PED["Privilege Escalation Detector"] --- ATV["Audit Trail Validator"] --- MPCE["Multi-Party Consensus Engine"]
-    end
-
-    subgraph VoiceLayer["Voice Reporter Layer"]
-        VIM["Voice Integration Manager"] --- TTSProviders["TTS Providers"]
+    subgraph LoaderGateway["🚀 Loader Gateway (Netlify)"]
+        LoaderUI["Interactive Robot Game"]
         
-        subgraph TTSProviders
-            OpenAI --- Google --- Azure
-            Cartesia
+        subgraph NetlifyFunctions["Netlify Functions"]
+            StartFunc["start.js"]
+            StatusFunc["status.js"]
         end
+        
+        LoaderUI --> NetlifyFunctions
     end
 
-    ValidationLayer --> CoreEngine
-    CoreEngine --> ShieldModules
-    ShieldModules --> VoiceLayer
+    subgraph EC2Instance["☁️ EC2 Instance"]
+        subgraph ValidationLayer["Agent Validation Layer"]
+            AV["Agent Validator"] --- CD["Capability Detector"] --- FC["Format Classifier"]
+        end
+
+        subgraph CoreEngine["AEGONG Core Engine"]
+            BA["Binary Analyzer"] --- SCS["Static Code Scanner"] --- DEM["Dynamic Execution Monitor"]
+        end
+
+        subgraph ShieldModules["SHIELD Validation Modules"]
+            SV["Segmentation Validator"] --- HPD["Heuristic Pattern Detector"] --- IC["Integrity Checker"]
+            PED["Privilege Escalation Detector"] --- ATV["Audit Trail Validator"] --- MPCE["Multi-Party Consensus Engine"]
+        end
+
+        subgraph VoiceLayer["Voice Reporter Layer"]
+            VIM["Voice Integration Manager"] --- TTSProviders["TTS Providers"]
+
+            subgraph TTSProviders
+                OpenAI --- Google --- Azure
+                Cartesia
+            end
+        end
+
+        ValidationLayer --> CoreEngine
+        CoreEngine --> ShieldModules
+        ShieldModules --> VoiceLayer
+    end
+
+    %% Data flow from User through the system and back
+    User -->|"1. Upload Agent"| LoaderUI
+    LoaderUI -->|"2. Start Analysis"| NetlifyFunctions
+    NetlifyFunctions -->|"3. Start/Monitor"| EC2Instance
+    ValidationLayer -->|"4. Validate"| CoreEngine
+    CoreEngine -->|"5. Analyze"| ShieldModules
+    ShieldModules -->|"6. Generate Report"| VoiceLayer
+    VoiceLayer -->|"7. Return Results"| EC2Instance
+    EC2Instance -->|"8. Display Results"| User
+    
+    %% High contrast colors for better visibility
+    style User fill:#00796b,color:#ffffff,stroke:#004d40,stroke-width:2px
+    style LoaderGateway fill:#1565c0,color:#ffffff,stroke:#0d47a1,stroke-width:2px
+    style EC2Instance fill:#6a1b9a,color:#ffffff,stroke:#4a148c,stroke-width:2px
+    style LoaderUI fill:#0288d1,color:#ffffff,stroke:#01579b,stroke-width:2px
+    style NetlifyFunctions fill:#0097a7,color:#ffffff,stroke:#006064,stroke-width:2px
+    style ValidationLayer fill:#7b1fa2,color:#ffffff,stroke:#4a148c,stroke-width:2px
+    style CoreEngine fill:#8e24aa,color:#ffffff,stroke:#4a148c,stroke-width:2px
+    style ShieldModules fill:#9c27b0,color:#ffffff,stroke:#4a148c,stroke-width:2px
+    style VoiceLayer fill:#ab47bc,color:#ffffff,stroke:#4a148c,stroke-width:2px
+    style TTSProviders fill:#ba68c8,color:#ffffff,stroke:#4a148c,stroke-width:2px
 ```
+
+## 🚀 Interactive Loader Gateway
+
+The Agent Auditor features an innovative **Interactive Loader Gateway** that serves as the entry point to the application. Instead of a boring loading screen, users are greeted with an engaging robot-building game while the system prepares their secure analysis environment.
+
+### 🎮 Build-a-Bot Game
+
+The loader presents users with an interactive robot-building experience:
+
+- **Drag & Drop Interface** - Intuitive robot part placement
+- **9 Unique Components** - Head, body, arms, legs, antennas, and wheels
+- **Real-time Feedback** - Visual progress tracking and animations
+- **Responsive Design** - Works seamlessly on desktop and mobile devices
+
+### ⚡ Netlify Functions Backend
+
+The loader is powered by modern serverless architecture:
+
+- **Netlify Functions** - Serverless backend for EC2 management
+- **AWS SDK Integration** - Direct EC2 instance control without API Gateway
+- **Real-time Status Monitoring** - Polls instance status every 5 seconds
+- **Automatic Redirection** - Seamless transition to the main application
+
+### 🔄 Smart Instance Management
+
+The loader intelligently manages your EC2 infrastructure:
+
+1. **Automatic Startup** - Detects and starts stopped instances
+2. **Status Monitoring** - Tracks instance state and health checks
+3. **Ready Detection** - Waits for full system initialization
+4. **Graceful Handoff** - Redirects users when the environment is ready
+
+### 🎯 User Experience Benefits
+
+- **Engagement Over Waiting** - Interactive game eliminates perceived wait time
+- **Progress Transparency** - Clear status updates and progress indicators
+- **User Control** - Options to redirect immediately or cancel auto-redirect
+- **Cost Efficiency** - Only starts instances when needed, reducing AWS costs
+
+### 🛠️ Technical Implementation
+
+The loader is built with modern web technologies:
+
+- **Static Hosting** - Deployed on Netlify for global CDN distribution
+- **Serverless Functions** - No server maintenance required
+- **Environment Variables** - Secure configuration management
+- **CORS Support** - Proper cross-origin resource sharing
+
+For detailed information about the loader implementation, see the [Loader Documentation](loader/README.md).
 
 ## 🎯 Threat Detection Capabilities
 
@@ -166,7 +253,17 @@ For detailed setup instructions and provider-specific options, see [TTS Provider
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Quick Access via Loader
+
+The easiest way to access Agent Auditor is through our **Interactive Loader Gateway**:
+
+1. **Visit the Loader** - Navigate to the deployed Netlify loader application
+2. **Play Build-a-Bot** - Enjoy the robot-building game while your environment starts
+3. **Automatic Redirect** - Get seamlessly redirected to the main application when ready
+
+The loader handles all the infrastructure management automatically, providing a smooth user experience without requiring any local setup.
+
+### Local Development Prerequisites
 - Go 1.21 or higher
 - Modern web browser for the web interface
 - Python 3.8+ (for voice report generation)
@@ -219,7 +316,28 @@ For detailed setup instructions and provider-specific options, see [TTS Provider
 
 ### Deployment
 
-For production deployment with git-based version management:
+Agent Auditor uses a **two-tier deployment architecture**:
+
+#### 1. Loader Gateway (Netlify)
+The Interactive Loader Gateway is deployed on Netlify for global accessibility:
+
+```bash
+# Deploy the loader
+cd loader
+npm install
+# Connect to Netlify and deploy via dashboard or CLI
+```
+
+Configure environment variables in Netlify dashboard:
+- `NETLIFY_AWS_REGION` - Your EC2 instance region
+- `NETLIFY_AWS_KEY_ID` - AWS credentials for EC2 management
+- `NETLIFY_AWS_SECRET_KEY` - AWS secret key
+- `NETLIFY_EC2_INSTANCE_ID` - Target EC2 instance ID
+
+> **Note:** We use custom environment variable names to avoid Netlify's reserved environment variable restrictions.
+
+#### 2. Main Application (EC2)
+The core AEGONG application is deployed on EC2 with git-based version management:
 
 ```bash
 # Create and push a release tag
@@ -269,7 +387,18 @@ See the [TTS Providers Guide](documentation/docsify/voice/TTS_PROVIDERS.md) for 
 
 ## 🌐 Web Interface Features
 
-The web interface provides a modern, interactive experience:
+Agent Auditor provides a **dual-interface experience**:
+
+### 🚀 Loader Gateway Interface
+- **Interactive Robot Game** - Engaging Build-a-Bot experience during startup
+- **Real-time Status Updates** - Live EC2 instance monitoring with progress indicators
+- **Smart Redirection** - Automatic transition to main application when ready
+- **User Control Options** - Manual redirect, cancel auto-redirect, copy IP address
+- **Responsive Design** - Optimized for all devices and screen sizes
+- **Cost-Aware Design** - Only starts instances when users are actively waiting
+
+### 🔍 Main Application Interface
+The core analysis interface provides a comprehensive security auditing experience:
 
 - **Drag & Drop Upload** - Easy agent binary submission
 - **Agent Validation** - Automatic verification of agent capabilities with detailed feedback
@@ -356,6 +485,27 @@ When voice reports are enabled, an additional audio file is generated containing
 
 ## 🔧 Troubleshooting
 
+### Loader Gateway Issues
+
+If you experience issues with the Interactive Loader Gateway:
+
+1. **Instance Won't Start**:
+   - Verify AWS credentials are correctly configured in Netlify environment variables
+   - Check that the EC2 instance ID is correct and the instance exists
+   - Ensure the AWS IAM user has EC2 start/stop permissions
+
+2. **Status Monitoring Fails**:
+   - Verify AWS region matches your EC2 instance location
+   - Check browser console for CORS or network errors
+   - Ensure Netlify Functions are deployed and accessible
+
+3. **Redirect Issues**:
+   - Verify the EC2 instance has a public IP address
+   - Check security group settings allow inbound traffic on port 8080
+   - Ensure the main application is running on the EC2 instance
+
+For loader-specific troubleshooting, see the [Loader Documentation](loader/README.md).
+
 ### Cgroup Permission Issues
 
 When running locally, you might encounter the following error:
@@ -393,6 +543,15 @@ This occurs because the application tries to create control groups (cgroups) for
 ### Project Structure
 ```
 Agent_Auditor/
+├── loader/              # Interactive Loader Gateway (Netlify deployment)
+│   ├── index.html       # Build-a-Bot game interface
+│   ├── package.json     # Node.js dependencies for Netlify Functions
+│   ├── netlify.toml     # Netlify deployment configuration
+│   ├── README.md        # Loader-specific documentation
+│   └── netlify/
+│       └── functions/
+│           ├── start.js # EC2 instance startup function
+│           └── status.js# EC2 instance status monitoring function
 ├── go.mod               # Dependency management
 ├── go.sum               # Dependency checksums
 ├── main.go              # Main application and web server

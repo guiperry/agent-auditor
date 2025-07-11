@@ -1,0 +1,33 @@
+{
+  "name": "agent-auditor-loader",
+  "version": "1.0.0",
+  "description": "Loader for Agent Auditor application - Netlify Functions implementation",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required for static site'",
+    "test": "echo 'No tests specified'"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1467.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^16.4.2"
+  },
+  "keywords": [
+    "netlify",
+    "serverless",
+    "aws",
+    "ec2",
+    "loader"
+  ],
+  "author": "Agent Auditor Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guiperry/agent-auditor.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

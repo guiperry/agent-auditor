@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Build-a-Bot - Agent Auditor Loader</title>
+    <title>Build-a-Bot - EC2 Starting...</title>
     <style>
         * {
             margin: 0;
@@ -226,7 +226,7 @@
 <body>
     <div class="header">
         <h1>🤖 Build-a-Bot</h1>
-        <div class="status">Agent Auditor Starting... Please wait while you build your robot!</div>
+        <div class="status">EC2 Instance Starting... Please wait while you build your robot!</div>
     </div>
 
     <div class="progress-bar">
@@ -271,8 +271,8 @@
         let statusInterval;
         let instanceStarted = false;
 
-        // Configuration - Updated to use Netlify Functions
-        const API_BASE_URL = '/.netlify/functions';
+        // Configuration - Replace with your actual API Gateway URL
+        const API_BASE_URL = 'https://9lg2vjojl2.execute-api.us-east-2.amazonaws.com/prod';
         
         // Start EC2 instance and begin monitoring
         async function startEC2Instance() {

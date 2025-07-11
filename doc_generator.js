@@ -156,7 +156,27 @@ function generateLegalFooter(categories) {
 // Get all markdown files from a directory
 function getMarkdownFiles(dir) {
   const files = fs.readdirSync(dir);
-  return files.filter(file => file.endsWith('.md'));
+  let markdownFiles = [];
+  
+  files.forEach(file => {
+    const fullPath = path.join(dir, file);
+    
+    // Skip the docs/dev directory
+    if (file === 'dev' && dir.endsWith('docs')) {
+      console.log(`Skipping dev directory: ${fullPath}`);
+      return;
+    }
+    
+    if (fs.statSync(fullPath).isDirectory()) {
+      // Recursively get markdown files from subdirectories
+      const subDirFiles = getMarkdownFiles(fullPath);
+      markdownFiles = markdownFiles.concat(subDirFiles);
+    } else if (file.endsWith('.md')) {
+      markdownFiles.push(fullPath);
+    }
+  });
+  
+  return markdownFiles;
 }
 
 // Parse BibTeX file to extract citations
@@ -350,11 +370,10 @@ function processMarkdownFiles() {
     console.log(`Loaded ${Object.keys(citations).length} citations from references.bib`);
   }
   
-  files.forEach(file => {
-    const filePath = path.join(CONFIG.sourceDir, file);
+  files.forEach(filePath => {
     const doc = parseMarkdownFile(filePath, citations);
     docs.push(doc);
-    console.log(`Processed: ${file} (Category: ${doc.category})`);
+    console.log(`Processed: ${path.basename(filePath)} (Category: ${doc.category})`);
   });
   
   return docs;
@@ -735,12 +754,11 @@ function main() {
   let sourceChanged = false;
   
   // Check if any source files have changed
-  for (const file of sourceFiles) {
-    const filePath = path.join(CONFIG.sourceDir, file);
+  for (const filePath of sourceFiles) {
     if (hasFileChanged(filePath, hashes)) {
       sourceChanged = true;
       updateFileHash(filePath, hashes);
-      console.log(`Source file changed: ${file}`);
+      console.log(`Source file changed: ${path.basename(filePath)}`);
     }
   }
   

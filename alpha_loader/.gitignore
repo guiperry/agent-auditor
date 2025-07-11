@@ -5,4 +5,3 @@ dist/
 node_modules/
 src/assets/images/*.png
 src/assets/sounds/*
-.env

@@ -1,0 +1,34 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[dev]
+  publish = "."
+  functions = "netlify/functions"
+
+# Redirect all requests to index.html for SPA behavior
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin", "editor"], Country = ["US"]}
+  force = false
+
+# Environment variables documentation
+# Set these in your Netlify dashboard under Site settings > Environment variables:
+# - NETLIFY_AWS_REGION: The AWS region where your EC2 instance is located (e.g., us-east-1)
+# - NETLIFY_AWS_KEY_ID: Your AWS access key ID
+# - NETLIFY_AWS_SECRET_KEY: Your AWS secret access key  
+# - NETLIFY_EC2_INSTANCE_ID: The ID of your EC2 instance (e.g., i-0123456789abcdef0)
+
+[functions]
+  # Set the Node.js runtime version
+  node_bundler = "esbuild"
+  
+# Headers for security and CORS
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
