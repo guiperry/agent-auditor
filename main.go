@@ -215,7 +215,7 @@ func main() {
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "80" // Changed default from 8084 to 80
+		port = "8084" // Default port that doesn't require root privileges
 	}
 
 	fmt.Println("🤖 Aegong - The Agent Auditor is awakening...")

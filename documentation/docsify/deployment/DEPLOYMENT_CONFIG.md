@@ -155,7 +155,7 @@ make sync-voice-config
 
 3. **Ensure AWS Security Group allows**:
    - SSH (port 22)
-   - Application port (80 or configured port)
+   - Application port (8084 or configured port)
 
 #### **Deploy**:
 ```bash
@@ -167,7 +167,7 @@ make test-deploy
 ```
 
 #### **Post-Deployment**:
-- Application will be accessible at: `http://YOUR_EC2_IP:80`
+- Application will be accessible at: `http://YOUR_EC2_IP:8084`
 - Version deployed matches your git tag/commit
 - Service runs with proper environment configuration
 
@@ -257,7 +257,7 @@ To make your deployments fully automated, you can use Ansible to manage the AWS 
 ```bash
 aws ec2 create-security-group --group-name aegong-sg --description "Agent Auditor Security Group"
 aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 22 --cidr 0.0.0.0/0
-aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 80 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-name aegong-sg --protocol tcp --port 8084 --cidr 0.0.0.0/0
 ```
 
 ## Benefits
