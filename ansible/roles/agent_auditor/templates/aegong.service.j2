@@ -15,8 +15,17 @@ ExecStart={{ app_dir }}/{{ binary_name }}
 Restart=on-failure
 RestartSec=10
 Environment="PATH={{ app_dir }}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="HOST=0.0.0.0"
 Environment="PORT={{ app_port }}"
-Environment="PROXY_PORT=80"
+Environment="LOG_LEVEL={{ log_level }}"
+Environment="VOICE_ENABLED={{ voice_enabled | lower }}"
+Environment="VOICE_KEY_PASS_ENV_VAR={{ voice_key_pass_env_var }}"
+Environment="VOICE_KEY_PATH={{ voice_key_path }}"
+Environment="VOICE_PROVIDER={{ voice_provider }}"
+Environment="VOICE_DEFAULT_VOICE={{ voice_default_voice }}"
+Environment="VOICE_OUTPUT_DIR={{ voice_output_dir }}"
+Environment="VOICE_WS_URL={{ voice_ws_url }}"
+
 {% if voice_enabled %}
 Environment="{{ voice_key_pass_env_var }}={{ vault_aegong_key_pass }}"
 {% endif %}
