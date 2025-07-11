@@ -112,6 +112,16 @@
         groups: aegong_dynamic
         ansible_user: "{{ ec2_ssh_user }}"
         ansible_ssh_private_key_file: "{{ ec2_ssh_key_file }}"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      tags: [ec2_management]
+        
+    - name: Debug SSH configuration
+      debug:
+        msg: 
+          - "SSH User: {{ ec2_ssh_user }}"
+          - "SSH Key File: {{ ec2_ssh_key_file }}"
+          - "Target IP: {{ instance_ip }}"
       when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
       tags: [ec2_management]
         

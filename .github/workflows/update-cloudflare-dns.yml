@@ -78,10 +78,27 @@ jobs:
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
+          # Save the SSH key with both names (id_rsa and AEGONG.pem)
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 400 ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/AEGONG.pem
+          chmod 600 ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/AEGONG.pem
+          
+          # Add known hosts
           echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+          
+          # Create SSH config file to use the key for all hosts
+          cat > ~/.ssh/config << EOF
+          Host *
+            IdentityFile ~/.ssh/AEGONG.pem
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # Debug SSH setup
+          ls -la ~/.ssh/
 
       - name: Create .env file with Cloudflare credentials
         run: |
