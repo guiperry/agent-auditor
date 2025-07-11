@@ -120,7 +120,7 @@
         ansible_ssh_private_key_file: "{{ ec2_ssh_key_file }}"
         ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
         ansible_python_interpreter: "auto_silent"
-      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined and (caller_id is defined)
+      when: instance_ip is defined
       tags: [ec2_management]
         
     - name: Debug SSH configuration
@@ -142,6 +142,24 @@
       shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ instance_ip }}"
       args:
         chdir: "{{ playbook_dir }}/.."
+      when: instance_ip is defined
+      delegate_to: localhost
+      tags: [ec2_management, update_dns]
+      
+    - name: Update static inventory file with new IP address
+      lineinfile:
+        path: "{{ playbook_dir }}/inventory/hosts.ini"
+        regexp: '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ansible_user=ubuntu'
+        line: "{{ instance_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/AEGONG.pem"
+      when: instance_ip is defined
+      delegate_to: localhost
+      tags: [ec2_management, update_dns]
+      
+    - name: Update ssh_allowed_cidr in group_vars/all/main.yml
+      replace:
+        path: "{{ playbook_dir }}/group_vars/all/main.yml"
+        regexp: 'ssh_allowed_cidr: "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/32"'
+        replace: 'ssh_allowed_cidr: "{{ instance_ip }}/32"'
       when: instance_ip is defined
       delegate_to: localhost
       tags: [ec2_management, update_dns]
@@ -198,6 +216,26 @@
     - name: Display deployment information
       debug:
         msg: "Deploying to static inventory (regular deployment)"
+        
+    - name: Check if we can connect to the host
+      wait_for_connection:
+        timeout: 10
+      register: connection_result
+      ignore_errors: yes
+      
+    - name: Fail with helpful message if connection fails
+      fail:
+        msg: |
+          Cannot connect to host {{ inventory_hostname }}. This could be because:
+          1. The IP address in inventory ({{ inventory_hostname }}) is incorrect
+          2. SSH is not running on the target host
+          3. Firewall rules are blocking the connection
+          4. The EC2 instance is not running
+          
+          The EC2 instance discovery found IP: {{ hostvars['localhost']['instance_ip'] | default('No IP discovered') }}
+          
+          Please update your inventory file or ensure the EC2 instance is running.
+      when: connection_result is failed
   roles:
     - agent_auditor
 
