@@ -24,27 +24,33 @@
       when: not ec2_auto_start | bool and not force_update | bool
       tags: [ec2_management]
       
-    - name: Find EC2 instance by tag
-      amazon.aws.ec2_instance_info:
-        region: "{{ aws_region }}"
-        filters:
-          "tag:Name": "{{ instance_tag_name }}"
-      register: ec2_info
+    - name: Set instance ID from parameter or find by tag
+      block:
+        - name: Use provided EC2 instance ID if available
+          set_fact:
+            instance_id: "{{ ec2_instance_id }}"
+          when: ec2_instance_id is defined and ec2_instance_id != ""
+          
+        - name: Find EC2 instance by tag if no instance ID provided
+          amazon.aws.ec2_instance_info:
+            region: "{{ aws_region }}"
+            filters:
+              "tag:Name": "{{ instance_tag_name }}"
+          register: ec2_info
+          when: instance_id is not defined
+          
+        - name: Verify instance was found when searching by tag
+          fail:
+            msg: "No EC2 instance found with tag Name:{{ instance_tag_name }}"
+          when: 
+            - instance_id is not defined
+            - ec2_info.instances | length == 0
+            
+        - name: Set instance ID variable from tag search
+          set_fact:
+            instance_id: "{{ ec2_info.instances[0].instance_id }}"
+          when: instance_id is not defined and ec2_info.instances | length > 0
       when: ec2_auto_start | bool or force_update | bool
-      tags: [ec2_management]
-      
-    - name: Verify instance was found
-      fail:
-        msg: "No EC2 instance found with tag Name:{{ instance_tag_name }}"
-      when: 
-        - ec2_auto_start | bool or force_update | bool
-        - ec2_info.instances | length == 0
-      tags: [ec2_management]
-      
-    - name: Set instance ID variable
-      set_fact:
-        instance_id: "{{ ec2_info.instances[0].instance_id }}"
-      when: (ec2_auto_start | bool or force_update | bool) and ec2_info.instances | length > 0
       tags: [ec2_management]
         
     - name: Start EC2 instance

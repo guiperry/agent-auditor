@@ -40,10 +40,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Install Ansible
+      - name: Install Ansible and required Python packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible sshpass
+          sudo apt-get install -y ansible
+          
+          # Install Python dependencies for Ansible AWS modules
+          pip install boto3 botocore sshpass
 
       - name: Configure SSH
         env:
