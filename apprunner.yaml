@@ -1,5 +1,5 @@
 version: 1.0
-runtime: golang
+runtime: go1
 build:
   commands:
     build:
@@ -7,10 +7,10 @@ build:
       - go build -o agent-auditor
   env:
     - name: GO_VERSION
-      value: "1.22.0"
+      value: "1.18.10"
 
 run:
-  runtime-version: 1.22.0
+  runtime-version: 1.18.10
   command: ./agent-auditor
   network:
     port: 8084

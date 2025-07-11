@@ -38,21 +38,45 @@ Set these environment variables in your Netlify dashboard (Site settings > Envir
 
 #### AWS SDK Configuration
 
-The application uses the AWS SDK for JavaScript to interact with EC2 instances. The SDK is configured in the Netlify Functions as follows:
+The application uses the AWS SDK for JavaScript to interact with EC2 instances. The SDK is configured with a robust fallback strategy to handle credential issues:
 
 ```javascript
-// Configure AWS SDK
-AWS.config.update({
-  region: keys.region,
-  accessKeyId: keys.accessKeyId,
-  secretAccessKey: keys.secretAccessKey
-});
+// Try to get a working EC2 client using our fallback strategy
+const ec2Result = await getEC2WithFallbackStrategy(credentials);
 
-// Create EC2 service object
-const ec2 = new AWS.EC2();
+// Get the EC2 client if successful
+const ec2 = ec2Result.ec2;
 ```
 
-This direct configuration approach is the most reliable way to set up the AWS SDK with credentials from environment variables.
+##### Credential Fallback Strategy
+
+The application implements a multi-tier fallback strategy for AWS credentials:
+
+1. **Primary Strategy**: Use the Netlify environment variables
+   ```javascript
+   AWS.config.update({
+     region: keys.region,
+     accessKeyId: keys.accessKeyId,
+     secretAccessKey: keys.secretAccessKey
+   });
+   ```
+
+2. **Fallback 1**: Use AWS SDK's default credential provider chain
+   - This tries environment variables, shared credentials file, and instance profiles
+
+3. **Fallback 2**: Try standard AWS environment variables directly
+   ```javascript
+   const envCredentials = {
+     region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION,
+     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+   };
+   ```
+
+4. **Fallback 3**: Use a mock EC2 client for development/testing
+   - This provides simulated responses for local development
+
+This multi-tier approach ensures maximum reliability when dealing with AWS credentials in a serverless environment.
 
 #### Troubleshooting AWS Credential Issues
 
@@ -121,7 +145,16 @@ If you see the error: `"AWS was not able to validate the provided access credent
    - Set the environment variables locally and test with `netlify dev`
    - This can help isolate whether the issue is with Netlify or your code
 
-9. **Last Resort - Hardcode for Testing**:
+9. **Enable Development Mode for Testing**:
+   - Set the `CONTEXT` environment variable to `dev` in Netlify:
+     ```
+     CONTEXT=dev
+     ```
+   - This will activate the mock EC2 client that simulates AWS responses
+   - You can test your application without real AWS credentials
+   - **Note**: This is only for testing the UI flow, not for production use
+
+10. **Last Resort - Hardcode for Testing**:
    - As a temporary measure for testing only, you can hardcode credentials:
      ```javascript
      // TEMPORARY FOR TESTING ONLY - REMOVE AFTER TESTING
