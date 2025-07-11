@@ -1,0 +1,93 @@
+name: Start EC2 Instance
+
+on:
+  workflow_dispatch:
+    inputs:
+      caller_id:
+        description: 'Unique ID of the caller (for tracking)'
+        required: false
+        type: string
+
+jobs:
+  start-ec2:
+    name: Start EC2 Instance and Update DNS
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible sshpass
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 400 ~/.ssh/id_rsa
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Create .env file with Cloudflare credentials
+        run: |
+          cat > .env << EOF
+          CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID=${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_RECORD_NAME=${{ secrets.CLOUDFLARE_RECORD_NAME }}
+          EOF
+
+      - name: Run Ansible playbook to start EC2 and update DNS
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        run: |
+          echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
+          
+          # Run only the EC2 management and IP update parts of the playbook
+          ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=true ec2_instance_id=$EC2_INSTANCE_ID"
+          
+          rm .vault_pass
+
+      - name: Get EC2 instance IP
+        id: get-ip
+        run: |
+          # Extract the IP address from the Ansible inventory file
+          IP_ADDRESS=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" ansible/inventory/hosts.ini | head -1 | awk '{print $1}')
+          echo "ip_address=$IP_ADDRESS" >> $GITHUB_OUTPUT
+          echo "Instance IP: $IP_ADDRESS"
+
+      - name: Create status file with instance information
+        run: |
+          cat > instance_status.json << EOF
+          {
+            "status": "running",
+            "ip_address": "${{ steps.get-ip.outputs.ip_address }}",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "caller_id": "${{ github.event.inputs.caller_id }}"
+          }
+          EOF
+          cat instance_status.json
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf ~/.ssh
+          rm -f .env
+          rm -f .vault_pass

@@ -9,7 +9,9 @@
     "test": "echo 'No tests specified'"
   },
   "dependencies": {
-    "aws-sdk": "^2.1467.0"
+    "aws-sdk": "^2.1467.0",
+    "axios": "^1.6.2",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "netlify-cli": "^16.4.2"

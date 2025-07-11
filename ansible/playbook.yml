@@ -16,11 +16,13 @@
     aws_region: "{{ aws_region }}"
     instance_tag_name: "{{ ec2_instance_tag_name }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
+    force_update: "{{ force_update | default(false) }}"
   
   tasks:
-    - name: Skip EC2 management if auto-start is disabled
+    - name: Skip EC2 management if auto-start is disabled and not forced
       meta: end_play
-      when: not ec2_auto_start | bool
+      when: not ec2_auto_start | bool and not force_update | bool
+      tags: [ec2_management]
       
     - name: Find EC2 instance by tag
       amazon.aws.ec2_instance_info:
@@ -28,19 +30,22 @@
         filters:
           "tag:Name": "{{ instance_tag_name }}"
       register: ec2_info
-      when: ec2_auto_start | bool
+      when: ec2_auto_start | bool or force_update | bool
+      tags: [ec2_management]
       
     - name: Verify instance was found
       fail:
         msg: "No EC2 instance found with tag Name:{{ instance_tag_name }}"
       when: 
-        - ec2_auto_start | bool
+        - ec2_auto_start | bool or force_update | bool
         - ec2_info.instances | length == 0
+      tags: [ec2_management]
       
     - name: Set instance ID variable
       set_fact:
         instance_id: "{{ ec2_info.instances[0].instance_id }}"
-      when: ec2_auto_start | bool and ec2_info.instances | length > 0
+      when: (ec2_auto_start | bool or force_update | bool) and ec2_info.instances | length > 0
+      tags: [ec2_management]
         
     - name: Start EC2 instance
       amazon.aws.ec2_instance:
@@ -50,19 +55,22 @@
         wait: yes
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: started_instance
-      when: ec2_auto_start | bool and instance_id is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined
+      tags: [ec2_management]
       
     - name: Get instance public IP
       amazon.aws.ec2_instance_info:
         region: "{{ aws_region }}"
         instance_ids: "{{ instance_id }}"
       register: running_instance_info
-      when: ec2_auto_start | bool and instance_id is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined
+      tags: [ec2_management, update_dns]
       
     - name: Set instance IP variable
       set_fact:
         instance_ip: "{{ running_instance_info.instances[0].public_ip_address }}"
-      when: ec2_auto_start | bool and running_instance_info is defined
+      when: (ec2_auto_start | bool or force_update | bool) and running_instance_info is defined
+      tags: [ec2_management, update_dns]
         
     - name: Wait for SSH to become available
       wait_for:
@@ -71,7 +79,8 @@
         delay: 10
         timeout: 300
       delegate_to: localhost
-      when: ec2_auto_start | bool and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      tags: [ec2_management]
       
     - name: Update inventory with dynamic IP
       add_host:
@@ -79,19 +88,22 @@
         groups: aegong_dynamic
         ansible_user: "{{ ec2_ssh_user }}"
         ansible_ssh_private_key_file: "{{ ec2_ssh_key_file }}"
-      when: ec2_auto_start | bool and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
+      tags: [ec2_management]
         
     - name: Display instance information
       debug:
         msg: "EC2 instance {{ instance_id }} is now running at {{ instance_ip }}"
-      when: ec2_auto_start | bool and instance_id is defined and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and instance_ip is defined
+      tags: [ec2_management, update_dns]
         
     - name: Update configuration files with new IP address
       shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ instance_ip }}"
       args:
         chdir: "{{ playbook_dir }}/.."
-      when: ec2_auto_start | bool and instance_ip is defined
+      when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
       delegate_to: localhost
+      tags: [ec2_management, update_dns]
 
 # Deploy to dynamic IP if auto-start is enabled
 - name: Deploy Agent Auditor Application (Dynamic IP)
@@ -131,11 +143,18 @@
     aws_region: "{{ aws_region }}"
     instance_id: "{{ hostvars['localhost']['instance_id'] | default(None) }}"
     wait_for_instance_timeout: "{{ ec2_wait_timeout }}"
+    force_update: "{{ force_update | default(false) }}"
   
   tasks:
     - name: Skip if auto-stop is disabled or instance_id is not defined
       meta: end_play
-      when: not ec2_auto_stop | bool or instance_id is none
+      when: (not ec2_auto_stop | bool and not force_update | bool) or instance_id is none
+      tags: [ec2_management]
+      
+    - name: Skip stopping EC2 if this is a DNS-only update
+      meta: end_play
+      when: force_update | bool and dns_only_update | default(false) | bool
+      tags: [ec2_management]
       
     - name: Stop EC2 instance
       amazon.aws.ec2_instance:
@@ -145,9 +164,11 @@
         wait: yes
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: stopped_instance
-      when: ec2_auto_stop | bool and instance_id is not none
+      when: (ec2_auto_stop | bool or force_update | bool) and instance_id is not none
+      tags: [ec2_management]
       
     - name: Confirm instance is stopped
       debug:
         msg: "EC2 instance {{ instance_id }} has been stopped successfully"
-      when: ec2_auto_stop | bool and stopped_instance is defined
+      when: (ec2_auto_stop | bool or force_update | bool) and stopped_instance is defined
+      tags: [ec2_management]

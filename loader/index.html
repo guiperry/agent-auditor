@@ -274,10 +274,11 @@
         // Configuration - Updated to use Netlify Functions
         const API_BASE_URL = '/.netlify/functions';
         
-        // Start EC2 instance and begin monitoring
+        // Start EC2 instance using GitHub workflow and begin monitoring
         async function startEC2Instance() {
             try {
-                const response = await fetch(`${API_BASE_URL}/start`, {
+                // Use the GitHub workflow function instead of direct AWS API
+                const response = await fetch(`${API_BASE_URL}/github-start`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -289,7 +290,9 @@
                 if (data.status === 'already_running') {
                     handleInstanceReady(data);
                 } else if (data.status === 'starting') {
-                    updateStatus('🚀 EC2 Instance starting... Build your robot while you wait!');
+                    updateStatus('🚀 EC2 Instance starting via GitHub workflow... Build your robot while you wait!');
+                    // Store the caller ID for status monitoring
+                    window.workflowCallerId = data.callerId;
                     startStatusMonitoring();
                 } else {
                     updateStatus('❌ Error: ' + data.message);
@@ -324,17 +327,22 @@
             }
         }
 
-        // Monitor instance status
+        // Monitor GitHub workflow and instance status
         function startStatusMonitoring() {
             statusInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`${API_BASE_URL}/status`);
+                    // Use the GitHub status function instead of direct AWS API
+                    const response = await fetch(`${API_BASE_URL}/github-status`);
                     const data = await response.json();
                     
                     if (data.isReady) {
                         handleInstanceReady(data);
                     } else {
-                        updateStatus(`⏳ Instance ${data.state}... Keep building!`);
+                        // Show more detailed workflow status
+                        const statusMessage = data.workflowStatus ? 
+                            `⏳ GitHub workflow: ${data.workflowStatus}` : 
+                            `⏳ Instance ${data.state || 'starting'}`;
+                        updateStatus(`${statusMessage}... Keep building!`);
                     }
                 } catch (error) {
                     console.error('Error checking status:', error);
