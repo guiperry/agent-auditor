@@ -3,14 +3,24 @@ const AWS = require('aws-sdk');
 const keys = require('../../config/keys');
 
 exports.handler = async function(event, context) {
-  // Log environment info for debugging (without exposing credentials)
+  // Log environment info for debugging (without exposing full credentials)
   console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
   console.log(`Netlify environment: ${process.env.NETLIFY ? 'true' : 'false'}`);
   console.log(`Context: ${process.env.CONTEXT || 'not set'}`);
   console.log(`AWS Region: ${keys.region}`);
   console.log(`Instance ID: ${keys.instanceId}`);
-  console.log(`Access Key ID provided: ${keys.accessKeyId ? 'Yes (masked)' : 'No'}`);
-  console.log(`Secret Access Key provided: ${keys.secretAccessKey ? 'Yes (masked)' : 'No'}`);
+  
+  // Log partial credentials for debugging (first 4 chars only)
+  const accessKeyPrefix = keys.accessKeyId ? keys.accessKeyId.substring(0, 4) + '...' : 'Not provided';
+  const secretKeyPrefix = keys.secretAccessKey ? keys.secretAccessKey.substring(0, 4) + '...' : 'Not provided';
+  console.log(`Access Key ID: ${accessKeyPrefix}`);
+  console.log(`Secret Access Key: ${secretKeyPrefix}`);
+  
+  // Log environment variable names that are available (without values)
+  console.log('Available environment variables (names only):');
+  Object.keys(process.env)
+    .filter(key => key.includes('AWS') || key.includes('NETLIFY') || key === 'NODE_ENV' || key === 'CONTEXT')
+    .forEach(key => console.log(`  - ${key}`));
 
   // Validate credentials before proceeding
   if (!keys.accessKeyId || !keys.secretAccessKey) {
@@ -29,15 +39,28 @@ exports.handler = async function(event, context) {
   }
 
   // Configure AWS SDK with our custom keys configuration
+  // Try a different approach for setting credentials
   AWS.config.update({
+    region: keys.region
+  });
+  
+  // Set credentials directly on config object
+  AWS.config.credentials = new AWS.Credentials({
+    accessKeyId: keys.accessKeyId,
+    secretAccessKey: keys.secretAccessKey
+  });
+  
+  // Log AWS SDK version for debugging
+  console.log(`AWS SDK Version: ${AWS.VERSION}`);
+  
+  // Create EC2 service object with explicit credentials
+  const ec2 = new AWS.EC2({
     region: keys.region,
     credentials: new AWS.Credentials({
       accessKeyId: keys.accessKeyId,
       secretAccessKey: keys.secretAccessKey
     })
   });
-
-  const ec2 = new AWS.EC2();
   const instanceId = keys.instanceId;
 
   // CORS headers for browser requests
@@ -142,9 +165,24 @@ exports.handler = async function(event, context) {
       troubleshootingSteps = `
 Please check the following:
 1. Verify that NETLIFY_AWS_KEY_ID and NETLIFY_AWS_SECRET_KEY are correctly set in Netlify environment variables
-2. Ensure the IAM user has EC2 permissions (ec2:DescribeInstances, ec2:StartInstances)
-3. Check if the access keys are still active and not expired
-4. After updating environment variables, redeploy your Netlify site
+   - Go to Netlify dashboard → Site settings → Environment variables
+   - Make sure there are no extra spaces or quotes in the values
+   - Ensure the variable names are exactly NETLIFY_AWS_KEY_ID and NETLIFY_AWS_SECRET_KEY
+
+2. Verify AWS credentials format:
+   - Access Key ID should be 20 characters (e.g., AKIA...)
+   - Secret Access Key should be 40 characters
+
+3. Ensure the IAM user has EC2 permissions:
+   - The user needs ec2:DescribeInstances, ec2:DescribeInstanceStatus, ec2:StartInstances permissions
+   - Check the IAM console to verify the policy is attached
+
+4. Region check:
+   - Make sure your credentials are valid in the ${keys.region} region
+   - The instance ID ${keys.instanceId} must exist in this region
+
+5. After updating environment variables:
+   - Go to Netlify dashboard → Deploys → Trigger deploy → Clear cache and deploy site
 `;
     } else if (error.code === 'InvalidInstanceID.NotFound') {
       troubleshootingSteps = `

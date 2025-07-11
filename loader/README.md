@@ -43,13 +43,22 @@ If you see the error: `"AWS was not able to validate the provided access credent
 1. **Verify Environment Variables in Netlify**:
    - Go to Netlify dashboard → Site settings → Environment variables
    - Ensure all four variables are set correctly:
-     - `NETLIFY_AWS_REGION`
-     - `NETLIFY_AWS_KEY_ID`
-     - `NETLIFY_AWS_SECRET_KEY`
-     - `NETLIFY_EC2_INSTANCE_ID`
-   - Check for typos or extra spaces in the values
+     - `NETLIFY_AWS_REGION` (e.g., `us-east-2`)
+     - `NETLIFY_AWS_KEY_ID` (should be 20 characters, starting with `AKIA`)
+     - `NETLIFY_AWS_SECRET_KEY` (should be 40 characters)
+     - `NETLIFY_EC2_INSTANCE_ID` (e.g., `i-0123456789abcdef0`)
+   - **Important**: Make sure there are no extra spaces, quotes, or newlines in the values
+   - If you copy-pasted the values, try typing them manually instead
 
-2. **Verify AWS IAM Permissions**:
+2. **Try Standard AWS Environment Variables**:
+   - If the Netlify-specific variables aren't working, try setting these standard variables:
+     - `AWS_REGION`
+     - `AWS_ACCESS_KEY_ID`
+     - `AWS_SECRET_ACCESS_KEY`
+     - `EC2_INSTANCE_ID`
+   - Our code will fall back to these if the Netlify-specific ones aren't found
+
+3. **Verify AWS IAM Permissions**:
    - The IAM user associated with your credentials needs these permissions:
      ```json
      {
@@ -68,19 +77,40 @@ If you see the error: `"AWS was not able to validate the provided access credent
        ]
      }
      ```
+   - You can also attach the `AmazonEC2FullAccess` managed policy for testing
 
-3. **Check AWS Credential Status**:
+4. **Check AWS Credential Status**:
    - Verify the credentials are active and not expired
    - Ensure the IAM user has not been deleted or disabled
-   - Consider creating new access keys if necessary
+   - Try creating new access keys in the AWS IAM console
+   - Make sure the keys are activated (sometimes new keys need activation)
 
-4. **Redeploy After Changes**:
+5. **Region and Instance Check**:
+   - Confirm your EC2 instance exists in the specified region
+   - Verify the instance ID is correct and the instance is not terminated
+   - Try accessing the instance through the AWS console to confirm it exists
+
+6. **Redeploy After Changes**:
    - After updating environment variables, trigger a new deployment:
-     ```bash
-     git commit --allow-empty -m "Trigger redeploy"
-     git push
+     - Go to Netlify dashboard → Deploys → Trigger deploy → Clear cache and deploy site
+   - This ensures your changes take effect
+
+7. **Check Netlify Logs**:
+   - Go to Netlify dashboard → Functions → Select your function → View logs
+   - Look for any error messages or warnings related to AWS credentials
+
+8. **Test Locally First**:
+   - Set the environment variables locally and test with `netlify dev`
+   - This can help isolate whether the issue is with Netlify or your code
+
+9. **Last Resort - Hardcode for Testing**:
+   - As a temporary measure for testing only, you can hardcode credentials:
+     ```javascript
+     // TEMPORARY FOR TESTING ONLY - REMOVE AFTER TESTING
+     if (!accessKeyId) accessKeyId = 'YOUR_ACCESS_KEY_ID';
+     if (!secretAccessKey) secretAccessKey = 'YOUR_SECRET_ACCESS_KEY';
      ```
-   - Or use the "Clear cache and deploy site" option in Netlify dashboard
+   - **IMPORTANT**: Remove hardcoded credentials immediately after testing!
 
 ### Step 3: Deploy to Netlify
 
