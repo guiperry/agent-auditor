@@ -9,6 +9,8 @@ We're building an open source developer community around Agent Auditor. If you'r
 ### User Guides
 
 * [DEFINING THE AGENT](guides/DEFINING_THE_AGENT.md) - 1.  **Perception**       Ability to sense or receive input from the environment (e.g. via sensors, APIs, databases, files, UIs).          *In code, this coul...
+* [Cloudflare DNS Update for EC2 Instances](guides/cloudflare-dns-setup.md) - This document explains how to set up automatic Cloudflare DNS updates for your EC2 instance IP address.
+* [GitHub Workflow-Based EC2 Instance Management](guides/github-workflow-ec2-setup.md) - This document explains how to set up and use the GitHub workflow-based approach for starting your EC2 instance and updating Cloudflare DNS.
 
 ### Deployment
 

@@ -5,6 +5,8 @@
 ## User Guides
 
 * [DEFINING THE AGENT](guides/DEFINING_THE_AGENT.md)
+* [Cloudflare DNS Update for EC2 Instances](guides/cloudflare-dns-setup.md)
+* [GitHub Workflow-Based EC2 Instance Management](guides/github-workflow-ec2-setup.md)
 
 ## Deployment
 

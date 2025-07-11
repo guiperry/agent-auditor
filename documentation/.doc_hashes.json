@@ -7,8 +7,8 @@
   "/home/gperry/Documents/GitHub/agent-auditor/docs/embedding_example.md": "4fe0b139091a63035199c0b3e70fa2aa",
   "/home/gperry/Documents/GitHub/agent-auditor/docs/references.bib": "f7a562bcf63000ffa5f26dec02b0c4fd",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/index.html": "eec8da3a6225cb637356e59259c87787",
-  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/README.md": "6cc2f622ba49ac58654717f2c087ebc3",
-  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/_sidebar.md": "6779d8ac9f0c5015185046c4dc20cb4c",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/README.md": "0a8c35c21b851bb93b52f63f060615c6",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/_sidebar.md": "d85d6ba0e9526d9ff8bda4ce4451336d",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/deployment/DEPLOYMENT_CONFIG.md": "c5f48f891a767976b3f71d0f812e9ad8",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/deployment/DOCUMENTATION.md": "ddbcdbe1ce7c2ff5c1449f2392aed5a4",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/voice/KEY_MANAGEMENT.md": "8f97b704842ee5bdae97cc794ac57326",
@@ -42,5 +42,9 @@
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/contribute/CONTRIBUTE.md": "2cdd505b08416d98bd998f800d1b4e03",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/legal/PRIVACY_POLICY.md": "9eca776cf8aa7e52f56eef5b714496ba",
   "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/contribute/README.md": "adb28971a15d396ba8f4fa6504bf2f85",
-  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/legal/TERMS_AND_CONDITIONS.md": "2673cd6bc2a36542e20080653f12df11"
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/legal/TERMS_AND_CONDITIONS.md": "2673cd6bc2a36542e20080653f12df11",
+  "/home/gperry/Documents/GitHub/agent-auditor/docs/cloudflare-dns-setup.md": "b89dc3164c53c2e4e68722dda5494ac6",
+  "/home/gperry/Documents/GitHub/agent-auditor/docs/github-workflow-ec2-setup.md": "e8353d8dd57274b01faf705c26367fd2",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/guides/cloudflare-dns-setup.md": "e0f4c261e28443b8507fc16c87aa60cd",
+  "content:/home/gperry/Documents/GitHub/agent-auditor/documentation/docsify/guides/github-workflow-ec2-setup.md": "15500792ba524d758b77714fbdae5610"
 }
