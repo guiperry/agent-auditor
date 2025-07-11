@@ -96,8 +96,15 @@ jobs:
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
           FORCE_UPDATE: ${{ github.event.inputs.force_update }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
           echo "$ANSIBLE_VAULT_PASSWORD" > .vault_pass
+          
+          # Create Ansible configuration to disable host key checking
+          mkdir -p ~/.ansible
+          echo "[defaults]" > ~/.ansible/ansible.cfg
+          echo "host_key_checking = False" >> ~/.ansible/ansible.cfg
+          echo "timeout = 30" >> ~/.ansible/ansible.cfg
           
           # Check if pipx Python exists and use it
           if [ -f "/opt/pipx/venvs/ansible-core/bin/python" ]; then
@@ -109,7 +116,7 @@ jobs:
           fi
           
           # Run only the EC2 management and IP update parts of the playbook
-          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH"
+          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'"
           
           # Display debug information
           echo "Using EC2 instance ID: $EC2_INSTANCE_ID"
