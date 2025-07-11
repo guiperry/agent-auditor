@@ -120,7 +120,7 @@ async function getEC2WithFallbackStrategy(credentials) {
   }
   
   // Fallback 3: Use a mock EC2 client for development/testing
-  if (process.env.NODE_ENV === 'development' || process.env.CONTEXT === 'dev') {
+  if (process.env.NODE_ENV === 'development' || process.env.MOCK_AWS === 'true') {
     console.log('Fallback 3: Using mock EC2 client for development');
     
     // Create a mock EC2 client that simulates responses
@@ -145,7 +145,7 @@ async function getEC2WithFallbackStrategy(credentials) {
           Reservations: [{
             Instances: [{
               InstanceId: credentials.instanceId,
-              PublicIpAddress: '192.0.2.0' // Example IP for documentation
+              PublicIpAddress: 'agent-auditor.fly.dev' // Redirect to the actual application
             }]
           }]
         })
@@ -229,6 +229,10 @@ Please check the following:
 3. Check if the access keys are still active and not expired
 4. Try setting standard AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) as a fallback
 5. After updating environment variables, redeploy your Netlify site
+
+For testing without AWS credentials:
+- Set MOCK_AWS=true in your Netlify environment variables to use a mock AWS client
+- This will allow you to test the UI flow without real AWS credentials
 `
       })
     };
@@ -290,7 +294,10 @@ Please check the following:
       
       const instance = describeResponse.Reservations[0].Instances[0];
       const publicIp = instance.PublicIpAddress;
-      const redirectUrl = publicIp ? `http://${publicIp}:80` : null;
+      // Use HTTPS for agent-auditor.fly.dev, otherwise use HTTP with port 80
+      const redirectUrl = publicIp ? 
+        (publicIp === 'agent-auditor.fly.dev' ? `https://${publicIp}` : `http://${publicIp}:80`) : 
+        null;
       
       console.log(`✅ Instance ${instanceId} is already ${instanceInfo.InstanceState.Name}`);
       

@@ -104,7 +104,7 @@ async function getEC2WithFallbackStrategy(credentials) {
   }
   
   // Fallback 3: Use a mock EC2 client for development/testing
-  if (process.env.NODE_ENV === 'development' || process.env.CONTEXT === 'dev') {
+  if (process.env.NODE_ENV === 'development' || process.env.MOCK_AWS === 'true') {
     console.log('Fallback 3: Using mock EC2 client for development');
     
     // Create a mock EC2 client that simulates responses
@@ -129,7 +129,7 @@ async function getEC2WithFallbackStrategy(credentials) {
           Reservations: [{
             Instances: [{
               InstanceId: credentials.instanceId,
-              PublicIpAddress: '192.0.2.0' // Example IP for documentation
+              PublicIpAddress: 'agent-auditor.fly.dev' // Redirect to the actual application
             }]
           }]
         })
@@ -215,6 +215,10 @@ Please check the following:
 3. Check if the access keys are still active and not expired
 4. Try setting standard AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) as a fallback
 5. After updating environment variables, redeploy your Netlify site
+
+For testing without AWS credentials:
+- Set MOCK_AWS=true in your Netlify environment variables to use a mock AWS client
+- This will allow you to test the UI flow without real AWS credentials
 `
       })
     };
@@ -297,13 +301,16 @@ Please check the following:
       publicIp = instance.PublicIpAddress;
       
       if (publicIp) {
-        redirectUrl = `http://${publicIp}:80`;
+        // Use HTTPS for agent-auditor.fly.dev, otherwise use HTTP with port 80
+        redirectUrl = publicIp === 'agent-auditor.fly.dev' ? 
+          `https://${publicIp}` : 
+          `http://${publicIp}:80`;
         console.log(`🎉 Instance ${instanceId} is ready! Public IP: ${publicIp}`);
       } else {
-        // Fallback IP address if instance IP is not available
-        const FALLBACK_IP = "3.146.37.27:80";
-        redirectUrl = `http://${FALLBACK_IP}`;
-        console.log(`🎉 Instance ${instanceId} is ready! Using fallback IP: ${FALLBACK_IP}`);
+        // Fallback URL if instance IP is not available
+        const FALLBACK_URL = "agent-auditor.fly.dev";
+        redirectUrl = `https://${FALLBACK_URL}`;
+        console.log(`🎉 Instance ${instanceId} is ready! Using fallback URL: ${FALLBACK_URL}`);
       }
     } else {
       console.log(`⏳ Instance ${instanceId} status: ${instanceState}`);

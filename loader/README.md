@@ -74,7 +74,9 @@ The application implements a multi-tier fallback strategy for AWS credentials:
    ```
 
 4. **Fallback 3**: Use a mock EC2 client for development/testing
-   - This provides simulated responses for local development
+   - Activated by setting `MOCK_AWS=true` in environment variables
+   - Provides simulated responses without requiring real AWS credentials
+   - Perfect for UI testing and development environments
 
 This multi-tier approach ensures maximum reliability when dealing with AWS credentials in a serverless environment.
 
@@ -145,12 +147,13 @@ If you see the error: `"AWS was not able to validate the provided access credent
    - Set the environment variables locally and test with `netlify dev`
    - This can help isolate whether the issue is with Netlify or your code
 
-9. **Enable Development Mode for Testing**:
-   - Set the `CONTEXT` environment variable to `dev` in Netlify:
+9. **Enable Mock AWS Mode for Testing**:
+   - Set the `MOCK_AWS` environment variable to `true` in Netlify:
      ```
-     CONTEXT=dev
+     MOCK_AWS=true
      ```
    - This will activate the mock EC2 client that simulates AWS responses
+   - The mock client will redirect to `https://agent-auditor.fly.dev/` when "ready"
    - You can test your application without real AWS credentials
    - **Note**: This is only for testing the UI flow, not for production use
 
