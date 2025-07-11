@@ -133,7 +133,7 @@ jobs:
           fi
           
           # Run only the EC2 management and IP update parts of the playbook
-          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'"
+          PYTHONPATH=/usr/lib/python3/dist-packages ansible-playbook ansible/playbook.yml --vault-password-file .vault_pass --tags "ec2_management,update_dns" -e "force_update=$FORCE_UPDATE ec2_instance_id=$EC2_INSTANCE_ID ansible_python_interpreter=$ANSIBLE_PYTHON_PATH"
           
           # Display debug information
           echo "Using EC2 instance ID: $EC2_INSTANCE_ID"

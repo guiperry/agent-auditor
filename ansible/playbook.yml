@@ -113,6 +113,7 @@
         ansible_user: "{{ ec2_ssh_user }}"
         ansible_ssh_private_key_file: "{{ ec2_ssh_key_file }}"
         ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        ansible_python_interpreter: "/usr/bin/python3"
       when: (ec2_auto_start | bool or force_update | bool) and instance_ip is defined
       tags: [ec2_management]
         
@@ -139,6 +140,31 @@
       delegate_to: localhost
       tags: [ec2_management, update_dns]
 
+# Pre-setup to ensure Python is available on the remote server
+- name: Ensure Python is installed on remote server
+  hosts: aegong_dynamic
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /bin/sh
+    deploy_condition: "{{ ec2_auto_start | bool and hostvars['localhost']['instance_ip'] is defined }}"
+  tasks:
+    - meta: end_play
+      when: not deploy_condition
+      
+    - name: Check if Python 3 is installed
+      raw: command -v python3 || echo "not installed"
+      register: python3_check
+      changed_when: false
+      
+    - name: Install Python 3 if not available
+      raw: apt-get update && apt-get install -y python3 python3-pip
+      when: "'not installed' in python3_check.stdout"
+      
+    - name: Set Python interpreter path
+      set_fact:
+        ansible_python_interpreter: /usr/bin/python3
+      
 # Deploy to dynamic IP if auto-start is enabled
 - name: Deploy Agent Auditor Application (Dynamic IP)
   hosts: aegong_dynamic
