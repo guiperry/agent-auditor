@@ -20,6 +20,14 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: '0755' # Make it executable
+    
+- name: Ensure binary is executable by root
+  file:
+    path: "{{ app_dir }}/{{ binary_name }}"
+    mode: '0755'
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    attributes: "+x"
 
 - name: Copy requirements.txt to server
   copy:
@@ -49,6 +57,55 @@
     - reports
     - voice_reports
     - scripts  # Keep the scripts directory for the embedded script
+    - logs     # Add logs directory for audit logs
+
+- name: Create empty audit log file with correct permissions
+  file:
+    path: "{{ app_dir }}/aegong_audit.log"
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+    
+- name: Ensure application directory and contents are readable by root
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    mode: '0755'
+    recurse: yes
+
+- name: Ensure scripts directory exists and has correct permissions
+  file:
+    path: "{{ app_dir }}/scripts"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy set_target_host.sh script to scripts directory
+  copy:
+    src: "../../../scripts/set_target_host.sh"
+    dest: "{{ app_dir }}/scripts/set_target_host.sh"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create .env file with correct permissions (will be populated by set_target_host.sh)
+  file:
+    path: "{{ app_dir }}/.env"
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Run set_target_host.sh script to populate .env file
+  command: "{{ app_dir }}/scripts/set_target_host.sh {{ app_dir }}/.env"
+  register: set_target_host_result
+  changed_when: false
+
+- name: Display set_target_host.sh result
+  debug:
+    msg: "{{ set_target_host_result.stdout_lines }}"
 
 - name: Copy encrypted key file to server
   copy:

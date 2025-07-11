@@ -21,8 +21,8 @@
     path: /opt/agent-auditor
     state: directory
     mode: '0755'
-    owner: aegong
-    group: aegong
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
 
 - name: Include application deployment tasks
   include_tasks: deploy_app.yml
