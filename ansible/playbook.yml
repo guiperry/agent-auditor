@@ -81,7 +81,7 @@
         instance_ids: "{{ instance_id }}"
         region: "{{ aws_region }}"
         state: running
-        wait: yes
+        wait: true
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: started_instance
       when: instance_id is defined and not skip_ec2_start
@@ -260,7 +260,7 @@
       wait_for_connection:
         timeout: 10
       register: connection_result
-      ignore_errors: yes
+      ignore_errors: true
       
     - name: Fail with helpful message if connection fails
       fail:
@@ -320,7 +320,7 @@
         instance_ids: "{{ instance_id }}"
         region: "{{ aws_region }}"
         state: stopped
-        wait: yes
+        wait: true
         wait_timeout: "{{ wait_for_instance_timeout }}"
       register: stopped_instance
       when: (ec2_auto_stop | bool or force_update | bool) and instance_id is not none and not keep_running
