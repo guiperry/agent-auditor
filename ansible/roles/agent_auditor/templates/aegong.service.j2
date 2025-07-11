@@ -1,17 +1,22 @@
 [Unit]
 Description=Aegong Agent Auditor Service
 After=network.target
+Conflicts=apache2.service nginx.service
 
 [Service]
 Type=simple
-User={{ app_user }}
-Group={{ app_group }}
+User=root
+Group=root
 WorkingDirectory={{ app_dir }}
+# Stop Apache or Nginx if running (they might be using port 80)
+ExecStartPre=-/bin/bash -c "systemctl is-active apache2 && systemctl stop apache2 || true"
+ExecStartPre=-/bin/bash -c "systemctl is-active nginx && systemctl stop nginx || true"
 ExecStart={{ app_dir }}/{{ binary_name }}
 Restart=on-failure
 RestartSec=10
 Environment="PATH={{ app_dir }}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PORT={{ app_port }}"
+Environment="PROXY_PORT=80"
 {% if voice_enabled %}
 Environment="{{ voice_key_pass_env_var }}={{ vault_aegong_key_pass }}"
 {% endif %}
@@ -32,3 +37,5 @@ ReadWritePaths=/sys/fs/cgroup
 
 [Install]
 WantedBy=multi-user.target
+
+
