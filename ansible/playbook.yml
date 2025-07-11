@@ -149,20 +149,48 @@
       when: (ec2_auto_start | bool or force_update | bool) and instance_id is defined and instance_ip is defined and (caller_id is defined or dns_only_update | default(false) | bool)
       tags: [ec2_management, update_dns]
         
-    - name: Update configuration files with new IP address
-      shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ instance_ip }}"
+    - name: Check if instance has public IP
+      set_fact:
+        has_public_ip: "{{ running_instance_info.instances[0].public_ip_address is defined and running_instance_info.instances[0].public_ip_address != '' }}"
+      when: running_instance_info is defined and running_instance_info.instances | length > 0
+      tags: [ec2_management, update_dns]
+      
+    - name: Debug public IP status
+      debug:
+        msg: "Instance has public IP: {{ has_public_ip | default(false) }}"
+      tags: [ec2_management, update_dns]
+      
+    - name: Update configuration files with new IP address (public IP if available)
+      shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ running_instance_info.instances[0].public_ip_address | default(instance_ip) }}"
       args:
         chdir: "{{ playbook_dir }}/.."
-      when: instance_ip is defined
+      when: instance_ip is defined and has_public_ip | default(false) | bool
       delegate_to: localhost
       tags: [ec2_management, update_dns]
       
-    - name: Update static inventory file with new IP address
+    - name: Update configuration files with new IP address (private IP when no public IP)
+      shell: "{{ playbook_dir }}/../scripts/update_ec2_ip.sh {{ instance_ip }}"
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      when: instance_ip is defined and not (has_public_ip | default(false) | bool)
+      delegate_to: localhost
+      tags: [ec2_management, update_dns]
+      
+    - name: Update static inventory file with new IP address (public IP if available)
+      lineinfile:
+        path: "{{ playbook_dir }}/inventory/hosts.ini"
+        regexp: '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ansible_user=ubuntu'
+        line: "{{ running_instance_info.instances[0].public_ip_address | default(instance_ip) }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/AEGONG.pem"
+      when: instance_ip is defined and has_public_ip | default(false) | bool
+      delegate_to: localhost
+      tags: [ec2_management, update_dns]
+      
+    - name: Update static inventory file with private IP address (when no public IP)
       lineinfile:
         path: "{{ playbook_dir }}/inventory/hosts.ini"
         regexp: '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ansible_user=ubuntu'
         line: "{{ instance_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/AEGONG.pem"
-      when: instance_ip is defined
+      when: instance_ip is defined and not (has_public_ip | default(false) | bool)
       delegate_to: localhost
       tags: [ec2_management, update_dns]
       
