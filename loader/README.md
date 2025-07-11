@@ -29,12 +29,58 @@ This application uses Netlify Functions with these endpoints:
 
 Set these environment variables in your Netlify dashboard (Site settings > Environment variables):
 
-- `NETLIFY_AWS_REGION` - AWS region where your EC2 instance is located (e.g., `us-east-1`)
+- `NETLIFY_AWS_REGION` - AWS region where your EC2 instance is located (e.g., `us-east-2`)
 - `NETLIFY_AWS_KEY_ID` - Your AWS access key ID
 - `NETLIFY_AWS_SECRET_KEY` - Your AWS secret access key
 - `NETLIFY_EC2_INSTANCE_ID` - ID of the EC2 instance to manage (e.g., `i-0123456789abcdef0`)
 
 > **Important:** We use custom environment variable names to avoid Netlify's reserved environment variable restrictions. Netlify reserves standard AWS environment variable names (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for its own use.
+
+#### Troubleshooting AWS Credential Issues
+
+If you see the error: `"AWS was not able to validate the provided access credentials"`, follow these steps:
+
+1. **Verify Environment Variables in Netlify**:
+   - Go to Netlify dashboard → Site settings → Environment variables
+   - Ensure all four variables are set correctly:
+     - `NETLIFY_AWS_REGION`
+     - `NETLIFY_AWS_KEY_ID`
+     - `NETLIFY_AWS_SECRET_KEY`
+     - `NETLIFY_EC2_INSTANCE_ID`
+   - Check for typos or extra spaces in the values
+
+2. **Verify AWS IAM Permissions**:
+   - The IAM user associated with your credentials needs these permissions:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "ec2:DescribeInstances",
+             "ec2:DescribeInstanceStatus",
+             "ec2:StartInstances",
+             "ec2:StopInstances"
+           ],
+           "Resource": "*"
+         }
+       ]
+     }
+     ```
+
+3. **Check AWS Credential Status**:
+   - Verify the credentials are active and not expired
+   - Ensure the IAM user has not been deleted or disabled
+   - Consider creating new access keys if necessary
+
+4. **Redeploy After Changes**:
+   - After updating environment variables, trigger a new deployment:
+     ```bash
+     git commit --allow-empty -m "Trigger redeploy"
+     git push
+     ```
+   - Or use the "Clear cache and deploy site" option in Netlify dashboard
 
 ### Step 3: Deploy to Netlify
 

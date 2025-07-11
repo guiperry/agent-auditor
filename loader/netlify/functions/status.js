@@ -3,6 +3,33 @@ const AWS = require('aws-sdk');
 const keys = require('../../config/keys');
 
 exports.handler = async function(event, context) {
+  // Log environment info for debugging (without exposing credentials)
+  console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
+  console.log(`Netlify environment: ${process.env.NETLIFY ? 'true' : 'false'}`);
+  console.log(`Context: ${process.env.CONTEXT || 'not set'}`);
+  console.log(`AWS Region: ${keys.region}`);
+  console.log(`Instance ID: ${keys.instanceId}`);
+  console.log(`Access Key ID provided: ${keys.accessKeyId ? 'Yes (masked)' : 'No'}`);
+  console.log(`Secret Access Key provided: ${keys.secretAccessKey ? 'Yes (masked)' : 'No'}`);
+
+  // Validate credentials before proceeding
+  if (!keys.accessKeyId || !keys.secretAccessKey) {
+    return {
+      statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status: 'error',
+        message: 'AWS credentials are missing. Please check your environment variables.',
+        error: 'Configuration error',
+        isReady: false,
+        state: 'error'
+      })
+    };
+  }
+
   // Configure AWS SDK with our custom keys configuration
   AWS.config.update({
     region: keys.region,

@@ -80,7 +80,7 @@
     name: "{{ security_group_name }}"
     description: "Security group for Agent Auditor"
     vpc_id: "{{ vpc_id }}"
-    region: "{{ aws_region | default(ansible_ec2_placement_region, true) | default('us-east-1') }}"
+    region: "{{ aws_region | default(ansible_ec2_placement_region, true) | default('us-east-2') }}"
     rules:
       - proto: tcp
         ports: [22]

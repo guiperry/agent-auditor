@@ -15,7 +15,7 @@
 
 # Environment variables documentation
 # Set these in your Netlify dashboard under Site settings > Environment variables:
-# - NETLIFY_AWS_REGION: The AWS region where your EC2 instance is located (e.g., us-east-1)
+# - NETLIFY_AWS_REGION: The AWS region where your EC2 instance is located (e.g., us-east-2)
 # - NETLIFY_AWS_KEY_ID: Your AWS access key ID
 # - NETLIFY_AWS_SECRET_KEY: Your AWS secret access key  
 # - NETLIFY_EC2_INSTANCE_ID: The ID of your EC2 instance (e.g., i-0123456789abcdef0)

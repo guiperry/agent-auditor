@@ -292,11 +292,35 @@
                     updateStatus('🚀 EC2 Instance starting... Build your robot while you wait!');
                     startStatusMonitoring();
                 } else {
-                    updateStatus('❌ Error starting instance: ' + data.message);
+                    updateStatus('❌ Error: ' + data.message);
+                    
+                    // Display troubleshooting steps if available
+                    if (data.troubleshooting) {
+                        showTroubleshootingMessage(data.troubleshooting);
+                    }
                 }
             } catch (error) {
                 console.error('Error starting instance:', error);
                 updateStatus('❌ Failed to start instance. Please try again.');
+            }
+            
+            // Function to display troubleshooting steps
+            function showTroubleshootingMessage(troubleshooting) {
+                const completionMessage = document.getElementById('completionMessage');
+                completionMessage.innerHTML = `
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; 
+                                backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
+                                text-align: left; margin-top: 20px;">
+                        <h3 style="color: #ff6b6b; margin-bottom: 10px;">Troubleshooting Steps:</h3>
+                        <pre style="white-space: pre-wrap; font-family: monospace; 
+                                   background: rgba(0, 0, 0, 0.2); padding: 10px; 
+                                   border-radius: 5px; color: #fff;">${troubleshooting}</pre>
+                        <p style="margin-top: 10px; font-size: 14px;">
+                            After fixing these issues, refresh the page to try again.
+                        </p>
+                    </div>
+                `;
+                completionMessage.classList.add('show');
             }
         }
 

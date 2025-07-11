@@ -33,7 +33,7 @@ firewall_enabled: true
 # These can be overridden with extra-vars or group_vars
 vpc_id: ""  # This should be provided when running on AWS
 security_group_name: "aegong-sg"
-aws_region: "us-east-1"
+aws_region: "us-east-2"
 ssh_allowed_cidr: "0.0.0.0/0"  # WARNING: Restrict this in production
 
 # EC2 Instance Management Settings

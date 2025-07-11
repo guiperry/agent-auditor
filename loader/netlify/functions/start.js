@@ -3,6 +3,31 @@ const AWS = require('aws-sdk');
 const keys = require('../../config/keys');
 
 exports.handler = async function(event, context) {
+  // Log environment info for debugging (without exposing credentials)
+  console.log(`Environment: ${process.env.NODE_ENV || 'not set'}`);
+  console.log(`Netlify environment: ${process.env.NETLIFY ? 'true' : 'false'}`);
+  console.log(`Context: ${process.env.CONTEXT || 'not set'}`);
+  console.log(`AWS Region: ${keys.region}`);
+  console.log(`Instance ID: ${keys.instanceId}`);
+  console.log(`Access Key ID provided: ${keys.accessKeyId ? 'Yes (masked)' : 'No'}`);
+  console.log(`Secret Access Key provided: ${keys.secretAccessKey ? 'Yes (masked)' : 'No'}`);
+
+  // Validate credentials before proceeding
+  if (!keys.accessKeyId || !keys.secretAccessKey) {
+    return {
+      statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status: 'error',
+        message: 'AWS credentials are missing. Please check your environment variables.',
+        error: 'Configuration error'
+      })
+    };
+  }
+
   // Configure AWS SDK with our custom keys configuration
   AWS.config.update({
     region: keys.region,
@@ -109,12 +134,40 @@ exports.handler = async function(event, context) {
   } catch (error) {
     console.error('Error starting instance:', error);
     
+    // Provide more specific guidance for common errors
+    let errorMessage = `Error starting instance: ${error.message}`;
+    let troubleshootingSteps = '';
+    
+    if (error.code === 'AuthFailure' || error.message.includes('validate the provided access credentials')) {
+      troubleshootingSteps = `
+Please check the following:
+1. Verify that NETLIFY_AWS_KEY_ID and NETLIFY_AWS_SECRET_KEY are correctly set in Netlify environment variables
+2. Ensure the IAM user has EC2 permissions (ec2:DescribeInstances, ec2:StartInstances)
+3. Check if the access keys are still active and not expired
+4. After updating environment variables, redeploy your Netlify site
+`;
+    } else if (error.code === 'InvalidInstanceID.NotFound') {
+      troubleshootingSteps = `
+Please check the following:
+1. Verify that NETLIFY_EC2_INSTANCE_ID is correctly set in Netlify environment variables
+2. Ensure the instance exists in the specified AWS region (${keys.region})
+3. Check if the instance has been terminated or deleted
+`;
+    } else if (error.code === 'UnauthorizedOperation') {
+      troubleshootingSteps = `
+Please check the following:
+1. The IAM user lacks permission to perform this action
+2. Add the required EC2 permissions to your IAM user
+`;
+    }
+    
     return {
       statusCode: 500,
       headers: headers,
       body: JSON.stringify({
         status: 'error',
-        message: `Error starting instance: ${error.message}`,
+        message: errorMessage,
+        troubleshooting: troubleshootingSteps.trim(),
         error: error.toString()
       })
     };
