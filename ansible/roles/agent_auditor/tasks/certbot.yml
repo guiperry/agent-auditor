@@ -23,9 +23,10 @@
 
 - name: Test that Nginx is serving the webroot directory
   uri:
-    url: "http://localhost/.well-known/"
+    url: "http://127.0.0.1/.well-known/"
     method: GET
     status_code: [200, 301, 302, 403, 404]  # 403/404 are OK, means directory exists but no index
+    validate_certs: no  # Skip certificate validation for local testing
   register: webroot_test
   ignore_errors: true
 
@@ -36,7 +37,7 @@
 - name: Wait for Nginx to be fully ready
   wait_for:
     port: 80
-    host: localhost
+    host: 127.0.0.1
     timeout: 30
 
 - name: Test external connectivity to domain (if using domain for SSL)
@@ -44,6 +45,7 @@
     url: "http://{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/"
     method: GET
     timeout: 10
+    validate_certs: no  # Skip certificate validation during testing
   register: external_connectivity_test
   ignore_errors: true
   when: use_domain_for_ssl and domain_name is defined
@@ -86,37 +88,188 @@
   debug:
     msg: "Updated UFW Status: {{ ufw_status_after.stdout_lines | default(['UFW not available']) }}"
 
-# AWS EC2 check removed - no longer needed since SSL setup is working
+# Check DNS resolution for the domain
+- name: Check DNS resolution for domain
+  command: "dig +short {% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}"
+  register: dns_check
+  changed_when: false
+  ignore_errors: true
+  when: use_domain_for_ssl and domain_name is defined
+
+- name: Display DNS resolution results
+  debug:
+    msg: |
+      DNS resolution for {% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}:
+      Result: {{ dns_check.stdout_lines | default(['No DNS resolution']) }}
+      {% if dns_check.stdout == '' %}
+      WARNING: Domain does not resolve to any IP address. Let's Encrypt validation may fail.
+      {% endif %}
+  when: use_domain_for_ssl and domain_name is defined
+
+- name: Check if certificate exists but needs renewal
+  stat:
+    path: "/etc/letsencrypt/live/aegong.knirv.com/fullchain.pem"
+  register: existing_cert
+  ignore_errors: true
+
+- name: Debug domain name for SSL
+  debug:
+    msg: "Using domain for SSL: aegong.knirv.com"
+
+- name: Wait for DNS propagation (2 minutes)
+  pause:
+    minutes: 2
+  when: force_ssl_renewal | default(false) | bool
+
+- name: Get server's public IP address
+  shell: "curl -s https://ipinfo.io/ip || curl -s https://api.ipify.org || curl -s https://icanhazip.com"
+  register: server_public_ip
+  changed_when: false
+  ignore_errors: true
+
+- name: Display server's public IP
+  debug:
+    msg: "Server's public IP: {{ server_public_ip.stdout }}"
+
+- name: Check if domain resolves to server's IP
+  shell: "dig +short aegong.knirv.com"
+  register: domain_ip_check
+  changed_when: false
+  ignore_errors: true
+
+- name: Display domain resolution check
+  debug:
+    msg: |
+      Domain: aegong.knirv.com
+      Resolves to: {{ domain_ip_check.stdout }}
+      Server IP: {{ server_public_ip.stdout }}
+      Match: {{ domain_ip_check.stdout == server_public_ip.stdout }}
+
+- name: Warning about domain resolution
+  debug:
+    msg: |
+      ⚠️ WARNING: Domain does not resolve to server's IP address! ⚠️
+      
+      Let's Encrypt validation will likely fail because the domain 
+      aegong.knirv.com does not point to this server's IP address ({{ server_public_ip.stdout }}).
+      
+      The Cloudflare DNS update may still be propagating. We'll continue with the certificate
+      request, but it might fail if DNS propagation is not complete.
+      
+      If this continues to fail, please check:
+      1. The Cloudflare API token and settings in your .env file
+      2. That the update_ec2_ip.sh script ran successfully
+      3. DNS propagation using: dig +short aegong.knirv.com
+  when: domain_ip_check.stdout != server_public_ip.stdout and domain_ip_check.stdout != ""
+
+- name: Debug Let's Encrypt environment
+  debug:
+    msg: "Using Let's Encrypt {{ 'staging' if use_letsencrypt_staging | default(false) else 'production' }} environment"
 
 - name: Obtain a new Let's Encrypt certificate if one doesn't exist
   ansible.builtin.command: >
     certbot certonly --webroot -w /var/www/html
-    -d {% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}
-    --email {{ admin_email | default('admin@' + (domain_name if (use_domain_for_ssl and domain_name is defined) else inventory_hostname)) }}
+    -d aegong.knirv.com
+    --email admin@knirv.com
     --agree-tos --non-interactive
+    {{ '--staging' if use_letsencrypt_staging | default(false) else '' }}
   args:
-    creates: /etc/letsencrypt/live/{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/fullchain.pem
+    creates: /etc/letsencrypt/live/aegong.knirv.com/fullchain.pem
   become: true
   register: certbot_result
   notify: restart nginx
+  when: not existing_cert.stat.exists
+
+- name: Debug force renewal status
+  debug:
+    msg: "Force SSL renewal: {{ force_ssl_renewal | default(false) }}"
+  when: existing_cert.stat.exists
+
+- name: Force renewal of Let's Encrypt certificate if needed
+  ansible.builtin.command: >
+    certbot certonly --webroot -w /var/www/html
+    -d aegong.knirv.com
+    --email admin@knirv.com
+    --agree-tos --non-interactive --force-renewal
+    {{ '--staging' if use_letsencrypt_staging | default(false) else '' }}
+  become: true
+  register: certbot_force_renewal
+  notify: restart nginx
+  when: 
+    - existing_cert.stat.exists
+    - force_ssl_renewal | default(false) | bool
 
 - name: Re-check SSL certificate files after Certbot
   stat:
-    path: "/etc/letsencrypt/live/{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/fullchain.pem"
+    path: "/etc/letsencrypt/live/aegong.knirv.com/fullchain.pem"
   register: ssl_cert_exists
-  when: certbot_result.changed
+  when: certbot_result.changed is defined and certbot_result.changed or certbot_force_renewal is defined and certbot_force_renewal.changed
+
+- name: Check if Let's Encrypt certificate exists after all attempts
+  stat:
+    path: "/etc/letsencrypt/live/aegong.knirv.com/fullchain.pem"
+  register: final_cert_check
+  ignore_errors: true
+
+- name: Create self-signed certificate as fallback
+  block:
+    - name: Create directory for self-signed certificates
+      file:
+        path: /etc/ssl/private
+        state: directory
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: Generate self-signed SSL certificate
+      command: >
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048
+        -keyout /etc/ssl/private/nginx-selfsigned.key
+        -out /etc/ssl/certs/nginx-selfsigned.crt
+        -subj "/CN={% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/O=Agent Auditor/C=US"
+      args:
+        creates: /etc/ssl/certs/nginx-selfsigned.crt
+      notify: restart nginx
+
+    - name: Create strong Diffie-Hellman group
+      command: openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+      args:
+        creates: /etc/ssl/certs/dhparam.pem
+      notify: restart nginx
+
+    - name: Set fact for self-signed certificate
+      set_fact:
+        using_self_signed: true
+
+    - name: Display self-signed certificate notice
+      debug:
+        msg: |
+          ⚠️ USING SELF-SIGNED CERTIFICATE ⚠️
+          
+          Let's Encrypt certificate could not be obtained, so a self-signed certificate
+          has been generated as a fallback. This will allow HTTPS to work, but browsers
+          will show a security warning.
+          
+          To fix this:
+          1. Ensure your domain points to this server's IP address ({{ server_public_ip.stdout }})
+          2. Run the deployment again with force_ssl_renewal: true
+          
+          Or, if you're using an IP address directly, this is expected behavior.
+  when: 
+    - not final_cert_check.stat.exists
+    - use_self_signed_fallback | default(true) | bool
 
 - name: Re-check options-ssl-nginx.conf after Certbot
   stat:
     path: /etc/letsencrypt/options-ssl-nginx.conf
   register: options_ssl_exists
-  when: certbot_result.changed
+  when: certbot_result.changed is defined and certbot_result.changed or certbot_force_renewal is defined and certbot_force_renewal.changed
 
 - name: Re-check ssl-dhparams.pem after Certbot
   stat:
     path: /etc/letsencrypt/ssl-dhparams.pem
   register: dhparams_exists
-  when: certbot_result.changed
+  when: certbot_result.changed is defined and certbot_result.changed or certbot_force_renewal is defined and certbot_force_renewal.changed
 
 - name: Regenerate Nginx configuration after SSL certificate is obtained
   template:
@@ -125,7 +278,7 @@
     owner: root
     group: root
     mode: '0644'
-  when: certbot_result.changed
+  when: certbot_result.changed is defined and certbot_result.changed or certbot_force_renewal is defined and certbot_force_renewal.changed
   notify: restart nginx
 
 - name: Ensure options-ssl-nginx.conf exists

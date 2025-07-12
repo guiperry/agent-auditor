@@ -12,7 +12,7 @@ ANSIBLE_PLAYBOOK=$(ANSIBLE_DIR)/playbook.yml
 .SILENT:
 
 # Phony targets don't represent files.
-.PHONY: help all build run test keys test-keys deploy clean sync-voice-config version test-deploy generate-docs update-ec2-ip
+.PHONY: help all build run test keys test-keys deploy deploy-on deploy-ssl clean sync-voice-config version test-deploy generate-docs update-ec2-ip
 
 help:
 	@echo "Usage: make <target>"
@@ -31,6 +31,8 @@ help:
 	@echo "Deployment Targets:"
 	@echo "  update-ec2-ip      Update EC2 IP address in all configuration files."
 	@echo "  deploy             Deploy with auto-updated version from git tag/commit."
+	@echo "  deploy-on          Deploy without turning off the EC2 instance after deployment."
+	@echo "  deploy-ssl         Deploy with SSL certificate renewal (keeps EC2 instance running)."
 	@echo "  test-deploy        Test the deploy version update process (dry run)."
 
 all: build
@@ -105,15 +107,27 @@ test-deploy:
 	echo "📄 Restored defaults file:"; \
 	grep "^app_version:" $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
 
-deploy: build
+# Common deployment preparation function
+define prepare_deployment
 	@echo "🚀 Preparing deployment with git version..."
 	@# Get current git tag or commit SHA
 	@GIT_VERSION=$$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD); \
 	echo "📋 Current version: $$GIT_VERSION"; \
 	echo "📝 Updating app_version in Ansible defaults..."; \
 	sed -i.bak "s/^app_version:.*/app_version: \"$$GIT_VERSION\"/" $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml; \
-	echo "✅ Updated app_version to: $$GIT_VERSION"; \
-	echo "🚀 Deploying application with Ansible..."; \
+	echo "✅ Updated app_version to: $$GIT_VERSION";
+endef
+
+# Common deployment cleanup function
+define cleanup_deployment
+	@echo "🔄 Restoring original defaults file..."; \
+	mv $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml.bak $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
+endef
+
+# Standard deployment (EC2 instance will be stopped after deployment)
+deploy: build
+	$(call prepare_deployment)
+	@echo "🚀 Deploying application with Ansible (EC2 will be stopped after deployment)..."; \
 	if [ -n "$$ANSIBLE_VAULT_PASSWORD" ]; then \
 		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --vault-password-file <(echo "$$ANSIBLE_VAULT_PASSWORD"); \
 	elif [ -f .env ] && grep -q "ANSIBLE_VAULT_PASS" .env; then \
@@ -121,9 +135,36 @@ deploy: build
 		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --vault-password-file <(echo "$$VAULT_PASS"); \
 	else \
 		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --ask-vault-pass; \
-	fi; \
-	echo "🔄 Restoring original defaults file..."; \
-	mv $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml.bak $(ANSIBLE_DIR)/roles/agent_auditor/defaults/main.yml
+	fi;
+	$(call cleanup_deployment)
+
+# Deployment without stopping EC2 instance
+deploy-on: build
+	$(call prepare_deployment)
+	@echo "🚀 Deploying application with Ansible (EC2 will remain running)..."; \
+	if [ -n "$$ANSIBLE_VAULT_PASSWORD" ]; then \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --extra-vars "keep_running=true" --vault-password-file <(echo "$$ANSIBLE_VAULT_PASSWORD"); \
+	elif [ -f .env ] && grep -q "ANSIBLE_VAULT_PASS" .env; then \
+		VAULT_PASS=$$(grep "ANSIBLE_VAULT_PASS" .env | cut -d'"' -f2); \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --extra-vars "keep_running=true" --vault-password-file <(echo "$$VAULT_PASS"); \
+	else \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --extra-vars "keep_running=true" --ask-vault-pass; \
+	fi;
+	$(call cleanup_deployment)
+
+# Deployment with SSL certificate renewal (keeps EC2 instance running)
+deploy-ssl: build
+	$(call prepare_deployment)
+	@echo "🚀 Deploying application with Ansible (with SSL renewal, EC2 will remain running)..."; \
+	if [ -n "$$ANSIBLE_VAULT_PASSWORD" ]; then \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --extra-vars "keep_running=true force_ssl_renewal=true" --vault-password-file <(echo "$$ANSIBLE_VAULT_PASSWORD"); \
+	elif [ -f .env ] && grep -q "ANSIBLE_VAULT_PASS" .env; then \
+		VAULT_PASS=$$(grep "ANSIBLE_VAULT_PASS" .env | cut -d'"' -f2); \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --extra-vars "keep_running=true force_ssl_renewal=true" --vault-password-file <(echo "$$VAULT_PASS"); \
+	else \
+		ansible-playbook -i $(ANSIBLE_INVENTORY) $(ANSIBLE_PLAYBOOK) --extra-vars "keep_running=true force_ssl_renewal=true" --ask-vault-pass; \
+	fi;
+	$(call cleanup_deployment)
 
 update-ec2-ip:
 	@echo "🔄 Updating EC2 IP address in configuration files..."

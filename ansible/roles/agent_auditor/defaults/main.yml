@@ -5,7 +5,7 @@ binary_name: "aegong"
 app_group: "root"
 app_port: 8084
 app_dir: "/opt/agent-auditor"
-app_version: "v1.0.0" # Or use a tag/commit SHA like "v1.0.1" or "a1b2c3d4e5f6"
+app_version: "38c7870"
 
 # Go settings
 go_version: "1.22.5"
@@ -29,14 +29,18 @@ voice_default_voice: "alloy"
 # Domain settings
 domain_name: "aegong.knirv.com"  # Domain name for SSL certificates
 use_domain_for_ssl: true  # Set to false to use IP address instead
+force_ssl_renewal: false  # Set to true to force SSL certificate renewal
+admin_email: "admin@knirv.com"  # Email for Let's Encrypt notifications
+use_letsencrypt_staging: false  # Set to true to use Let's Encrypt staging environment (for testing)
+use_self_signed_fallback: true  # Set to true to use a self-signed certificate if Let's Encrypt fails
 
 # Firewall settings
 firewall_enabled: true
 
 # AWS settings (only used when running on EC2)
 # These can be overridden with extra-vars or group_vars
-vpc_id: ""  # This should be provided when running on AWS
-security_group_name: "aegong-sg"
+vpc_id: "vpc-08829a6d98471cfc5"  # This should be provided when running on AWS
+security_group_name: "launch-wizard-2"
 aws_region: "us-east-2"
 ssh_allowed_cidr: "0.0.0.0/0"  # WARNING: Restrict this in production
 

@@ -3,7 +3,7 @@
 
 - name: Check if SSL certificates exist
   stat:
-    path: "/etc/letsencrypt/live/{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/fullchain.pem"
+    path: "/etc/letsencrypt/live/aegong.knirv.com/fullchain.pem"
   register: ssl_cert_exists
   ignore_errors: true
 

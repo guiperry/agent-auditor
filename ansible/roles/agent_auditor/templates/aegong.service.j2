@@ -12,7 +12,7 @@ ExecStart={{ app_dir }}/{{ binary_name }}
 Restart=on-failure
 RestartSec=10
 Environment="PATH={{ app_dir }}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-Environment="HOST=127.0.0.1"
+# Environment="HOST=127.0.0.1" # Removed to allow dynamic host from .env
 Environment="PORT={{ app_port }}"
 
 {% if voice_enabled %}

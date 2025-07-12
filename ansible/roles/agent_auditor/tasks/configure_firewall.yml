@@ -107,6 +107,26 @@
   when:
     - firewall_enabled
     - ansible_os_family == "Debian"
+
+- name: Force allow application port 8084 (even on AWS)
+  ufw:
+    rule: allow
+    port: "{{ app_port }}"
+    proto: tcp
+    comment: "Agent Auditor Web Interface"
+  when:
+    - firewall_enabled
+    - ansible_os_family == "Debian"
+
+- name: Force allow HTTPS port 443 for SSL (even on AWS)
+  ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+    comment: "HTTPS for SSL"
+  when:
+    - firewall_enabled
+    - ansible_os_family == "Debian"
 - name: Check if AWS credentials are available
   shell: |
     if [ -f ~/.aws/credentials ] || [ -n "$AWS_ACCESS_KEY_ID" ] || [ -n "$AWS_SECRET_ACCESS_KEY" ] || curl -s -m 1 http://169.254.169.254/latest/meta-data/iam/security-credentials/ | grep -v "404 - Not Found"; then
@@ -142,6 +162,10 @@
         ports: [80]
         cidr_ip: "0.0.0.0/0"
         rule_desc: "Allow HTTP for Agent Auditor Proxy"
+      - proto: tcp
+        ports: [443]
+        cidr_ip: "0.0.0.0/0"
+        rule_desc: "Allow HTTPS for SSL"
   when:
     - firewall_enabled
     - aws_instance_check is defined
@@ -164,10 +188,12 @@
       
       To access your Agent Auditor application:
       http://{{ ansible_default_ipv4.address }} (via port 80 proxy)
+      https://{{ ansible_default_ipv4.address }} (via SSL if configured)
       http://{{ ansible_default_ipv4.address }}:{{ app_port }} (direct port)
       
       Or if you have an Elastic IP or domain:
       http://YOUR_DOMAIN_OR_EIP (via port 80 proxy)
+      https://YOUR_DOMAIN_OR_EIP (via SSL if configured)
       http://YOUR_DOMAIN_OR_EIP:{{ app_port }} (direct port)
   when: 
     - firewall_enabled
@@ -197,11 +223,14 @@
       4. Edit the inbound rules to allow:
          - TCP port 22 (SSH) from your IP address
          - TCP port {{ app_port }} from anywhere (0.0.0.0/0) or from specific IPs
+         - TCP port 80 (HTTP) from anywhere (0.0.0.0/0)
+         - TCP port 443 (HTTPS) from anywhere (0.0.0.0/0)
       
       Without this configuration, you will not be able to access the application from the internet.
       
       Your application is running at:
       http://{{ ansible_default_ipv4.address }} (via port 80 proxy)
+      https://{{ ansible_default_ipv4.address }} (via SSL if configured)
       http://{{ ansible_default_ipv4.address }}:{{ app_port }} (direct port)
       
       But it will only be accessible after you configure the security group!
@@ -224,16 +253,22 @@
       WARNING: No VPC ID provided, Security Group was NOT configured!
       
       Please manually ensure your EC2 instance has the correct Security Group attached
-      with ports 22 (SSH) and {{ app_port }} (Agent Auditor) open.
+      with the following ports open:
+      - 22 (SSH)
+      - {{ app_port }} (Agent Auditor)
+      - 80 (HTTP)
+      - 443 (HTTPS)
       
       You can check this in the AWS Console under EC2 > Instances > Security Groups
       
       To access your Agent Auditor application:
       http://{{ ansible_default_ipv4.address }} (via port 80 proxy)
+      https://{{ ansible_default_ipv4.address }} (via SSL if configured)
       http://{{ ansible_default_ipv4.address }}:{{ app_port }} (direct port)
       
       Or if you have an Elastic IP or domain:
       http://YOUR_DOMAIN_OR_EIP (via port 80 proxy)
+      https://YOUR_DOMAIN_OR_EIP (via SSL if configured)
       http://YOUR_DOMAIN_OR_EIP:{{ app_port }} (direct port)
   when: 
     - firewall_enabled
@@ -254,9 +289,12 @@
       Allowed Ports:
       - SSH (22/tcp)
       - Agent Auditor ({{ app_port }}/tcp)
+      - HTTP (80/tcp)
+      - HTTPS (443/tcp)
       
       Access your application at:
       http://{{ ansible_default_ipv4.address }} (via port 80 proxy)
+      https://{{ ansible_default_ipv4.address }} (via SSL if configured)
       http://{{ ansible_default_ipv4.address }}:{{ app_port }} (direct port)
   when: 
     - firewall_enabled
@@ -275,6 +313,8 @@
       Please ensure your EC2 instance has a security group with the following ports open:
       - SSH (22/tcp)
       - Agent Auditor ({{ app_port }}/tcp)
+      - HTTP (80/tcp)
+      - HTTPS (443/tcp)
       
       You can configure this in the AWS Console:
       1. Go to EC2 > Security Groups
