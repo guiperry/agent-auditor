@@ -706,6 +706,8 @@ func validateScriptAgent(data []byte) (*AgentValidationResult, error) {
 
 // validateJarAgent validates if a JAR file is an AI agent
 func validateJarAgent(data []byte, filePath string) (*AgentValidationResult, error) {
+	// filePath is unused but kept for API consistency and potential future use
+	_ = filePath // Explicitly mark as unused to satisfy linter
 	result := &AgentValidationResult{
 		IsAgent:      false,
 		Confidence:   0.0,

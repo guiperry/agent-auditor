@@ -5,7 +5,7 @@ binary_name: "aegong"
 app_group: "root"
 app_port: 8084
 app_dir: "/opt/agent-auditor"
-app_version: "5c1205f"
+app_version: "v1.0.0" # Or use a tag/commit SHA like "v1.0.1" or "a1b2c3d4e5f6"
 
 # Go settings
 go_version: "1.22.5"
@@ -25,6 +25,10 @@ voice_key_file_dest: "{{ app_dir }}/default.key"
 voice_key_pass_env_var: "AEGONG_KEY_PASS"
 voice_output_dir: "{{ app_dir }}/voice_reports"
 voice_default_voice: "alloy"
+
+# Domain settings
+domain_name: "aegong.knirv.com"  # Domain name for SSL certificates
+use_domain_for_ssl: true  # Set to false to use IP address instead
 
 # Firewall settings
 firewall_enabled: true

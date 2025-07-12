@@ -8,6 +8,13 @@
   systemd:
     name: nginx
     state: restarted
+    daemon_reload: yes
+
+- name: Reload Nginx
+  systemd:
+    name: nginx
+    state: reloaded
+    daemon_reload: yes
 
 - name: Set permissions after service restart
   block:
@@ -15,19 +22,4 @@
       wait_for:
         timeout: 5
       become: false
-      
-    - name: Check if default.key exists
-      stat:
-        path: "{{ app_dir }}/default.key"
-      register: default_key_stat
-      become: true
-    
-    - name: Ensure default.key has correct permissions if it exists
-      file:
-        path: "{{ app_dir }}/default.key"
-        owner: root
-        group: root
-        mode: '0600'  # Restrictive permissions for key file
-      when: default_key_stat.stat.exists
-      become: true
 

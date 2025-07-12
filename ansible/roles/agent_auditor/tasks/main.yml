@@ -24,11 +24,14 @@
 - name: Include application deployment tasks
   include_tasks: deploy_app.yml
 
-- name: Configure NGINX as reverse proxy
-  include_tasks: configure_nginx.yml
-
 - name: Include firewall configuration tasks
   include_tasks: configure_firewall.yml
+
+- name: Configure NGINX as reverse proxy (initial setup)
+  include_tasks: configure_nginx.yml
+
+- name: Set up SSL certificates with Certbot
+  include_tasks: certbot.yml
 
 - name: Include health check tasks
   include_tasks: health_check.yml

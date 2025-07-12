@@ -1,6 +1,80 @@
 ---
 # Configure NGINX as a reverse proxy for the agent-auditor application
 
+- name: Check if SSL certificates exist
+  stat:
+    path: "/etc/letsencrypt/live/{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/fullchain.pem"
+  register: ssl_cert_exists
+  ignore_errors: true
+
+- name: Check if options-ssl-nginx.conf exists
+  stat:
+    path: /etc/letsencrypt/options-ssl-nginx.conf
+  register: options_ssl_exists
+  ignore_errors: true
+
+- name: Check if ssl-dhparams.pem exists
+  stat:
+    path: /etc/letsencrypt/ssl-dhparams.pem
+  register: dhparams_exists
+  ignore_errors: true
+
+- name: Create options-ssl-nginx.conf if it doesn't exist
+  copy:
+    content: |
+      # This file contains important security parameters. If you modify this file
+      # manually, Certbot will be unable to automatically provide future security
+      # updates. Instead, Certbot will print and log an error message with a path to
+      # the up-to-date file that you will need to refer to when manually updating
+      # this file.
+
+      ssl_session_cache shared:le_nginx_SSL:10m;
+      ssl_session_timeout 1440m;
+      ssl_session_tickets off;
+
+      ssl_protocols TLSv1.2 TLSv1.3;
+      ssl_prefer_server_ciphers off;
+
+      ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
+    dest: /etc/letsencrypt/options-ssl-nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: not options_ssl_exists.stat.exists
+  become: true
+
+- name: Create ssl-dhparams.pem if it doesn't exist
+  copy:
+    content: |
+      -----BEGIN DH PARAMETERS-----
+      MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
+      +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
+      87VXE15/V8k1mE8McODmi3fipona8+/och3xWKE2rec1MKzKT0g6eXq8CrGCsyT7
+      YdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi
+      7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD
+      ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
+      -----END DH PARAMETERS-----
+    dest: /etc/letsencrypt/ssl-dhparams.pem
+    owner: root
+    group: root
+    mode: '0644'
+  when: not dhparams_exists.stat.exists
+  become: true
+
+- name: Remove default NGINX site if it exists
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Ensure Nginx log directory exists
+  file:
+    path: /var/log/nginx
+    state: directory
+    owner: www-data
+    group: adm
+    mode: '0755'
+
 - name: Create NGINX configuration for agent-auditor
   template:
     src: nginx_agent_auditor.conf.j2
@@ -17,11 +91,16 @@
     state: link
   notify: restart nginx
 
-- name: Remove default NGINX site if it exists
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  notify: restart nginx
+- name: Test NGINX configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  ignore_errors: true
+
+- name: Display NGINX test results
+  debug:
+    var: nginx_test.stdout_lines
+  when: nginx_test is defined
 
 - name: Ensure NGINX is enabled and started
   systemd:

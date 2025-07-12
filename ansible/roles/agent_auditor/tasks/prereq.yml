@@ -10,27 +10,7 @@
   become: true
   become_user: root
 
-- name: Check if aegong user exists
-  getent:
-    database: passwd
-    key: aegong
-  register: aegong_user_check
-  ignore_errors: true
-
-- name: Remove aegong user if it exists
-  block:
-    - name: Force remove aegong user with userdel command
-      shell: userdel -f aegong || true
-      args:
-        warn: false
-      changed_when: true
-  when: aegong_user_check.ansible_facts.getent_passwd.aegong is defined
-
-- name: Remove aegong group if it exists
-  group:
-    name: aegong
-    state: absent
-  ignore_errors: true
+# User management removed - application now runs as root as configured
 
 - name: Check if cgroups v2 is in use
   stat:

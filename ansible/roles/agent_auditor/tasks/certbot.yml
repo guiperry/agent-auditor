@@ -1,0 +1,163 @@
+# In ansible/roles/agent_auditor/tasks/certbot.yml
+
+- name: Install Certbot and its Nginx plugin
+  block:
+    - ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+  become: true
+
+- name: Create a webroot directory for Let's Encrypt challenges
+  block:
+    - ansible.builtin.file:
+        path: /var/www/html
+        state: directory
+        mode: '0755'
+  become: true
+
+# Nginx should already be configured and running from configure_nginx.yml
+# No need to start it again here
+
+- name: Test that Nginx is serving the webroot directory
+  uri:
+    url: "http://localhost/.well-known/"
+    method: GET
+    status_code: [200, 301, 302, 403, 404]  # 403/404 are OK, means directory exists but no index
+  register: webroot_test
+  ignore_errors: true
+
+- name: Display webroot test results
+  debug:
+    msg: "Webroot test result: {{ webroot_test.status | default('failed') }}"
+
+- name: Wait for Nginx to be fully ready
+  wait_for:
+    port: 80
+    host: localhost
+    timeout: 30
+
+- name: Test external connectivity to domain (if using domain for SSL)
+  uri:
+    url: "http://{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/"
+    method: GET
+    timeout: 10
+  register: external_connectivity_test
+  ignore_errors: true
+  when: use_domain_for_ssl and domain_name is defined
+
+- name: Display external connectivity test results
+  debug:
+    msg: |
+      External connectivity test for {% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}:
+      Status: {{ external_connectivity_test.status | default('failed') }}
+      {% if external_connectivity_test.failed %}
+      This may indicate a firewall or DNS issue that could prevent Let's Encrypt validation.
+      {% endif %}
+  when: use_domain_for_ssl and domain_name is defined
+
+- name: Check UFW status before Certbot
+  command: ufw status
+  register: ufw_status
+  ignore_errors: true
+  changed_when: false
+
+- name: Display UFW status
+  debug:
+    msg: "UFW Status: {{ ufw_status.stdout_lines | default(['UFW not available']) }}"
+
+- name: Ensure port 80 is open for Let's Encrypt (emergency fix)
+  ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+  ignore_errors: true
+  become: true
+
+- name: Verify port 80 is now open
+  command: ufw status
+  register: ufw_status_after
+  ignore_errors: true
+  changed_when: false
+
+- name: Display updated UFW status
+  debug:
+    msg: "Updated UFW Status: {{ ufw_status_after.stdout_lines | default(['UFW not available']) }}"
+
+# AWS EC2 check removed - no longer needed since SSL setup is working
+
+- name: Obtain a new Let's Encrypt certificate if one doesn't exist
+  ansible.builtin.command: >
+    certbot certonly --webroot -w /var/www/html
+    -d {% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}
+    --email {{ admin_email | default('admin@' + (domain_name if (use_domain_for_ssl and domain_name is defined) else inventory_hostname)) }}
+    --agree-tos --non-interactive
+  args:
+    creates: /etc/letsencrypt/live/{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/fullchain.pem
+  become: true
+  register: certbot_result
+  notify: restart nginx
+
+- name: Re-check SSL certificate files after Certbot
+  stat:
+    path: "/etc/letsencrypt/live/{% if use_domain_for_ssl and domain_name is defined %}{{ domain_name }}{% else %}{{ inventory_hostname }}{% endif %}/fullchain.pem"
+  register: ssl_cert_exists
+  when: certbot_result.changed
+
+- name: Re-check options-ssl-nginx.conf after Certbot
+  stat:
+    path: /etc/letsencrypt/options-ssl-nginx.conf
+  register: options_ssl_exists
+  when: certbot_result.changed
+
+- name: Re-check ssl-dhparams.pem after Certbot
+  stat:
+    path: /etc/letsencrypt/ssl-dhparams.pem
+  register: dhparams_exists
+  when: certbot_result.changed
+
+- name: Regenerate Nginx configuration after SSL certificate is obtained
+  template:
+    src: nginx_agent_auditor.conf.j2
+    dest: /etc/nginx/sites-available/agent-auditor.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: certbot_result.changed
+  notify: restart nginx
+
+- name: Ensure options-ssl-nginx.conf exists
+  ansible.builtin.file:
+    path: /etc/letsencrypt/options-ssl-nginx.conf
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve
+  become: true
+  when: not ansible_check_mode
+
+- name: Ensure ssl-dhparams.pem exists
+  ansible.builtin.file:
+    path: /etc/letsencrypt/ssl-dhparams.pem
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve
+  become: true
+  when: not ansible_check_mode
+
+- name: Ensure Certbot auto-renewal is scheduled
+  block:
+    - ansible.builtin.cron:
+        name: "Certbot automatic renewal"
+        minute: "0"
+        hour: "5"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+  become: true
+
