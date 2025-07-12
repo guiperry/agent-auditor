@@ -33,6 +33,16 @@ DeviceAllow=/dev/urandom r
 # Ensure we can write to cgroups
 ReadWritePaths=/sys/fs/cgroup
 
+# Increase resource limits to prevent 522 errors
+LimitNOFILE=65535
+TimeoutStartSec=120
+TimeoutStopSec=120
+
+# Memory and CPU limits
+# Increase from default to allow for more processing
+MemoryLimit=1G
+CPUQuota=80%
+
 [Install]
 WantedBy=multi-user.target
 
